@@ -37,8 +37,13 @@
 			.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'participants', filter: `session_id=eq.${session.id}` },
 				(payload) => { participants = [...participants, payload.new as Participant]; }
 			)
-			.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'participants', filter: `session_id=eq.${session.id}` },
-				(payload) => { participants = participants.map((p) => p.id === payload.new.id ? (payload.new as Participant) : p); }
+			// No filter on UPDATE — Postgres needs REPLICA IDENTITY FULL to filter UPDATE events
+			// by non-PK columns. We filter client-side instead.
+			.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'participants' },
+				(payload) => {
+					if (payload.new.session_id !== session.id) return;
+					participants = participants.map((p) => p.id === payload.new.id ? (payload.new as Participant) : p);
+				}
 			)
 			.subscribe();
 	});
