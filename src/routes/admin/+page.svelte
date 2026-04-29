@@ -208,13 +208,13 @@
 					bind:value={secret}
 					required
 					autocomplete="current-password"
-					class="rounded border px-3 py-2 font-mono text-sm"
+					class="rounded border border-zinc-700 bg-zinc-800 px-3 py-2 font-mono text-sm text-white"
 				/>
 			</label>
 			<button
 				type="submit"
 				disabled={loading}
-				class="rounded bg-zinc-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+				class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
 			>
 				{loading ? 'Loading…' : 'Unlock'}
 			</button>
@@ -227,12 +227,12 @@
 				type="text"
 				bind:value={newGenreName}
 				placeholder="New genre name…"
-				class="flex-1 rounded border px-3 py-2 text-sm"
+				class="flex-1 rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder:text-zinc-500"
 			/>
 			<button
 				type="submit"
 				disabled={creatingGenre || !newGenreName.trim()}
-				class="rounded bg-zinc-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+				class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-40"
 			>
 				{creatingGenre ? 'Creating…' : '+ Genre'}
 			</button>
@@ -240,9 +240,9 @@
 
 		<!-- Genre list -->
 		{#if genres.length === 0}
-			<p class="text-sm text-zinc-500">No genres yet.</p>
+			<p class="text-sm text-zinc-400">No genres yet.</p>
 		{:else}
-			<div class="flex flex-col divide-y divide-zinc-200 rounded-lg border border-zinc-200">
+			<div class="flex flex-col divide-y divide-zinc-700 rounded-lg border border-zinc-700">
 				{#each genres as genre (genre.id)}
 					<div>
 						<!-- Genre row -->
@@ -257,44 +257,44 @@
 								<input
 									bind:value={editingGenreName}
 									onkeydown={(e) => { if (e.key === 'Enter') saveGenreName(genre.id); if (e.key === 'Escape') editingGenreId = null; }}
-									class="flex-1 rounded border px-2 py-1 text-sm font-semibold"
+									class="flex-1 rounded border border-zinc-600 bg-zinc-800 px-2 py-1 text-sm font-semibold text-white"
 								/>
-								<button onclick={() => saveGenreName(genre.id)} class="text-sm text-emerald-600 hover:underline">Save</button>
+								<button onclick={() => saveGenreName(genre.id)} class="text-sm text-emerald-400 hover:underline">Save</button>
 								<button onclick={() => editingGenreId = null} class="text-sm text-zinc-400 hover:underline">Cancel</button>
 							{:else}
 								<span class="flex-1 font-semibold">{genre.name}</span>
-								<span class="text-xs text-zinc-400">{trackCount(genre)} tracks</span>
-								<button onclick={() => startEditGenre(genre)} class="text-xs text-zinc-500 hover:text-zinc-900">Rename</button>
-								<button onclick={() => deleteGenre(genre.id, genre.name)} class="text-xs text-red-500 hover:text-red-700">Delete</button>
+								<span class="text-xs text-zinc-500">{trackCount(genre)} tracks</span>
+								<button onclick={() => startEditGenre(genre)} class="text-xs text-zinc-400 hover:text-white">Rename</button>
+								<button onclick={() => deleteGenre(genre.id, genre.name)} class="text-xs text-red-400 hover:text-red-300">Delete</button>
 							{/if}
 						</div>
 
 						<!-- Expanded: tracks + upload -->
 						{#if expandedId === genre.id}
-							<div class="border-t border-zinc-100 bg-zinc-50 px-4 py-3">
+							<div class="border-t border-zinc-700 bg-zinc-900 px-4 py-3">
 								{#if loadingTracksFor === genre.id}
 									<p class="text-sm text-zinc-400">Loading…</p>
 								{:else if !genre.tracks || genre.tracks.length === 0}
 									<p class="mb-3 text-sm text-zinc-400">No tracks yet.</p>
 								{:else}
-									<ul class="mb-4 flex flex-col gap-1">
+									<ul class="mb-4 flex flex-col gap-0.5">
 										{#each genre.tracks as track (track.id)}
-											<li class="flex items-center gap-2 rounded px-2 py-1 hover:bg-zinc-100">
+											<li class="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-zinc-800">
 												{#if editingTrackId === track.id}
 													<input
 														bind:value={editingTrackTitle}
 														onkeydown={(e) => { if (e.key === 'Enter') saveTrackTitle(genre.id, track.id); if (e.key === 'Escape') editingTrackId = null; }}
-														class="flex-1 rounded border px-2 py-1 text-sm"
+														class="flex-1 rounded border border-zinc-600 bg-zinc-800 px-2 py-1 text-sm text-white"
 													/>
-													<button onclick={() => saveTrackTitle(genre.id, track.id)} class="text-xs text-emerald-600 hover:underline">Save</button>
+													<button onclick={() => saveTrackTitle(genre.id, track.id)} class="text-xs text-emerald-400 hover:underline">Save</button>
 													<button onclick={() => editingTrackId = null} class="text-xs text-zinc-400 hover:underline">Cancel</button>
 												{:else}
-													<span class="flex-1 truncate text-sm">{track.title}</span>
+													<span class="flex-1 truncate text-sm text-zinc-100">{track.title}</span>
 													{#if track.duration_seconds}
-														<span class="shrink-0 text-xs text-zinc-400">{track.duration_seconds}s</span>
+														<span class="shrink-0 text-xs text-zinc-500">{track.duration_seconds}s</span>
 													{/if}
-													<button onclick={() => startEditTrack(track)} class="shrink-0 text-xs text-zinc-400 hover:text-zinc-900">Rename</button>
-													<button onclick={() => deleteTrack(genre.id, track.id, track.title)} class="shrink-0 text-xs text-red-400 hover:text-red-600">Delete</button>
+													<button onclick={() => startEditTrack(track)} class="shrink-0 text-xs text-zinc-400 hover:text-white">Rename</button>
+													<button onclick={() => deleteTrack(genre.id, track.id, track.title)} class="shrink-0 text-xs text-red-400 hover:text-red-300">Delete</button>
 												{/if}
 											</li>
 										{/each}
@@ -308,12 +308,12 @@
 										accept="audio/mpeg,.mp3"
 										multiple
 										bind:this={fileInputs[genre.id]}
-										class="flex-1 text-sm"
+										class="flex-1 text-sm text-zinc-300 file:mr-3 file:rounded file:border-0 file:bg-zinc-700 file:px-3 file:py-1 file:text-xs file:font-semibold file:text-white hover:file:bg-zinc-600"
 									/>
 									<button
 										onclick={() => uploadToGenre(genre.id, genre.name)}
 										disabled={uploading}
-										class="shrink-0 rounded bg-zinc-800 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+										class="shrink-0 rounded bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-40"
 									>
 										{uploading && uploadGenreId === genre.id ? 'Uploading…' : 'Upload'}
 									</button>
@@ -323,12 +323,12 @@
 									<ul class="mt-2 flex flex-col gap-1">
 										{#each uploadResults[genre.id] as r}
 											<li class="flex items-center gap-2 text-xs">
-												{#if r.status === 'pending'}<span class="text-zinc-400">–</span>
-												{:else if r.status === 'uploading'}<span class="text-blue-500">↑</span>
-												{:else if r.status === 'done'}<span class="text-emerald-600">✓</span>
-												{:else}<span class="text-red-500">✗</span>{/if}
-												<span class="flex-1 truncate">{r.name}</span>
-												{#if r.message}<span class="text-zinc-400">{r.message}</span>{/if}
+												{#if r.status === 'pending'}<span class="text-zinc-500">–</span>
+												{:else if r.status === 'uploading'}<span class="text-blue-400">↑</span>
+												{:else if r.status === 'done'}<span class="text-emerald-400">✓</span>
+												{:else}<span class="text-red-400">✗</span>{/if}
+												<span class="flex-1 truncate text-zinc-300">{r.name}</span>
+												{#if r.message}<span class="text-zinc-500">{r.message}</span>{/if}
 											</li>
 										{/each}
 									</ul>
