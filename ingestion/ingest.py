@@ -97,10 +97,19 @@ def insert_track(genre_id: str, title: str, storage_path: str, duration: int) ->
 # Download + convert
 # ---------------------------------------------------------------------------
 
+COOKIES_FILE = os.environ.get("YOUTUBE_COOKIES_FILE")
+
+
+def _cookies_args() -> list[str]:
+    if COOKIES_FILE and os.path.exists(COOKIES_FILE):
+        return ["--cookies", COOKIES_FILE]
+    return []
+
+
 def expand_url(url: str) -> list[str]:
     """Return a list of video URLs — expands playlists, passes through single videos."""
     result = subprocess.run(
-        ["yt-dlp", "--flat-playlist", "--print", "webpage_url", url],
+        ["yt-dlp", "--flat-playlist", "--print", "webpage_url", *_cookies_args(), url],
         capture_output=True, text=True,
     )
     urls = [line for line in result.stdout.strip().splitlines() if line.startswith("http")]
@@ -118,6 +127,7 @@ def download_audio(url: str, out_dir: str) -> tuple[str, str, int]:
         "--output", out_template,
         "--print", "after_move:filepath",
         "--no-playlist",
+        *_cookies_args(),
         url,
     ]
     result = subprocess.run(cmd, capture_output=True, text=True)

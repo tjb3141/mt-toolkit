@@ -26,10 +26,14 @@ jobs:
       - name: Install Python deps
         run: pip install -r ingestion/requirements.txt
 
+      - name: Write YouTube cookies
+        run: echo "${{ secrets.YOUTUBE_COOKIES_B64 }}" | base64 -d > /tmp/yt_cookies.txt
+
       - name: Run ingest
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           GENRE: ${{ github.event.inputs.genre }}
           PLAYLIST_URL: ${{ github.event.inputs.playlist_url }}
+          YOUTUBE_COOKIES_FILE: /tmp/yt_cookies.txt
         run: python ingestion/ingest.py "$GENRE" "$PLAYLIST_URL"
