@@ -97,6 +97,16 @@ def insert_track(genre_id: str, title: str, storage_path: str, duration: int) ->
 # Download + convert
 # ---------------------------------------------------------------------------
 
+def expand_url(url: str) -> list[str]:
+    """Return a list of video URLs — expands playlists, passes through single videos."""
+    result = subprocess.run(
+        ["yt-dlp", "--flat-playlist", "--print", "webpage_url", url],
+        capture_output=True, text=True,
+    )
+    urls = [line for line in result.stdout.strip().splitlines() if line.startswith("http")]
+    return urls if urls else [url]
+
+
 def download_audio(url: str, out_dir: str) -> tuple[str, str, int]:
     """Download audio, convert to mp3, return (filepath, title, duration_seconds)."""
     out_template = os.path.join(out_dir, "%(title)s.%(ext)s")
@@ -144,8 +154,13 @@ def main():
     genre_id = get_or_create_genre(genre_name)
     print(f"Genre id: {genre_id}")
 
+    expanded = []
+    for url in urls:
+        expanded.extend(expand_url(url))
+    print(f"Total tracks to process: {len(expanded)}")
+
     with tempfile.TemporaryDirectory() as tmp:
-        for url in urls:
+        for url in expanded:
             print(f"\nProcessing: {url}")
             try:
                 filepath, title, duration = download_audio(url, tmp)

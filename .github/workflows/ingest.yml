@@ -1,0 +1,35 @@
+name: Ingest Tracks
+
+on:
+  workflow_dispatch:
+    inputs:
+      genre:
+        description: Genre name (e.g. "Pop")
+        required: true
+      playlist_url:
+        description: YouTube playlist or video URL
+        required: true
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ffmpeg
+        run: sudo apt-get install -y ffmpeg
+
+      - name: Install Python deps
+        run: pip install -r ingestion/requirements.txt
+
+      - name: Run ingest
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GENRE: ${{ github.event.inputs.genre }}
+          PLAYLIST_URL: ${{ github.event.inputs.playlist_url }}
+        run: python ingestion/ingest.py "$GENRE" "$PLAYLIST_URL"
