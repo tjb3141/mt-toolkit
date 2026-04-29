@@ -38,6 +38,8 @@ export const DELETE: RequestHandler = async ({ request, params }) => {
 		await admin.storage.from('tracks').remove(tracks.map((t) => t.storage_path));
 	}
 
+	await admin.from('participants').update({ genre_id: null }).eq('genre_id', params.id);
+
 	const { error: err } = await admin.from('genres').delete().eq('id', params.id);
 	if (err) throw error(500, err.message);
 
