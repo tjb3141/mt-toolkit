@@ -101,16 +101,23 @@
 					const newTrackId = payload.new.track_id;
 					const newFound = payload.new.found;
 					if (pair) pair = { ...pair, found: newFound, track_id: newTrackId };
-					if (newFound && audioEl) {
-						audioEl.pause();
-					} else if (!newFound && newTrackId && newTrackId !== track?.id) {
-						// Same pair, new round — load the new track
-						supabase
-							.from('tracks')
-							.select('id, title, storage_path')
-							.eq('id', newTrackId)
-							.single()
-							.then(({ data: t }) => { if (t) track = t; });
+					if (newFound) {
+						audioEl?.pause();
+					} else if (!newFound && newTrackId) {
+						if (newTrackId !== track?.id) {
+							// New track assigned — load it and play
+							supabase
+								.from('tracks')
+								.select('id, title, storage_path')
+								.eq('id', newTrackId)
+								.single()
+								.then(({ data: t }) => {
+									if (t) track = t;
+								});
+						} else {
+							// Same track, new round — just resume
+							audioEl?.play().catch(() => {});
+						}
 					}
 				}
 			)

@@ -124,12 +124,13 @@
 			trackTitle: p.track_id ? (tMap[p.track_id] ?? '?') : '—'
 		}));
 
+		if (pairsChannel) await supabase.removeChannel(pairsChannel);
 		subscribeToPairs();
 	}
 
 	function subscribeToPairs() {
 		pairsChannel = supabase
-			.channel(`pairs:${session.id}`)
+			.channel(`pairs:${session.id}:${Date.now()}`)
 			.on(
 				'postgres_changes',
 				{
@@ -214,6 +215,9 @@
 
 	async function restartSamePairs() {
 		startingGame = true;
+		// Reset found immediately so the UI clears before the round-trip completes
+		pairs = pairs.map((p) => ({ ...p, found: false }));
+
 		const trackQuery = supabase.from('tracks').select('id, title');
 		if (selectedGenreId) trackQuery.eq('genre_id', selectedGenreId);
 		const { data: trackData } = await trackQuery;
