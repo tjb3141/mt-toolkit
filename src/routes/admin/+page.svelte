@@ -1,42 +1,159 @@
 <script lang="ts">
 	import { supabase } from '$lib/supabase';
 
-	type FileResult = { name: string; status: 'pending' | 'uploading' | 'done' | 'error'; message: string };
+	type Track = { id: string; title: string; storage_path: string; duration_seconds: number | null };
+	type Genre = { id: string; name: string; display_order: number; tracks?: Track[] };
 
 	let secret = $state('');
-	let genre = $state('');
-	let fileInput = $state<HTMLInputElement | null>(null);
-	let results = $state<FileResult[]>([]);
-	let running = $state(false);
+	let unlocked = $state(false);
+	let loading = $state(false);
+	let genres = $state<Genre[]>([]);
+
+	let expandedId = $state<string | null>(null);
+	let loadingTracksFor = $state<string | null>(null);
+
+	let editingGenreId = $state<string | null>(null);
+	let editingGenreName = $state('');
+	let editingTrackId = $state<string | null>(null);
+	let editingTrackTitle = $state('');
+
+	let newGenreName = $state('');
+	let creatingGenre = $state(false);
+
+	let uploadGenreId = $state<string | null>(null);
+	let fileInputs = $state<Record<string, HTMLInputElement | null>>({});
+	let uploadResults = $state<Record<string, { name: string; status: string; message: string }[]>>({});
+	let uploading = $state(false);
+
+	async function unlock(e: SubmitEvent) {
+		e.preventDefault();
+		loading = true;
+		const { data, error } = await supabase
+			.from('genres')
+			.select('id, name, display_order')
+			.order('display_order');
+		loading = false;
+		if (error) { alert('Failed to load genres — check your secret is set in Vercel env vars.'); return; }
+		genres = data ?? [];
+		unlocked = true;
+	}
+
+	async function expandGenre(id: string) {
+		if (expandedId === id) { expandedId = null; return; }
+		expandedId = id;
+		const genre = genres.find((g) => g.id === id);
+		if (genre?.tracks) return;
+		loadingTracksFor = id;
+		const { data } = await supabase
+			.from('tracks')
+			.select('id, title, storage_path, duration_seconds')
+			.eq('genre_id', id)
+			.order('title');
+		loadingTracksFor = null;
+		genres = genres.map((g) => (g.id === id ? { ...g, tracks: data ?? [] } : g));
+	}
+
+	async function createGenre(e: SubmitEvent) {
+		e.preventDefault();
+		if (!newGenreName.trim()) return;
+		creatingGenre = true;
+		const res = await fetch('/admin/genres', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ secret, name: newGenreName.trim() })
+		});
+		creatingGenre = false;
+		if (!res.ok) { alert(await res.text()); return; }
+		const genre = await res.json();
+		genres = [...genres, { ...genre, tracks: [] }];
+		newGenreName = '';
+	}
+
+	function startEditGenre(genre: Genre) {
+		editingGenreId = genre.id;
+		editingGenreName = genre.name;
+	}
+
+	async function saveGenreName(id: string) {
+		const res = await fetch(`/admin/genres/${id}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ secret, name: editingGenreName })
+		});
+		if (!res.ok) { alert(await res.text()); return; }
+		genres = genres.map((g) => (g.id === id ? { ...g, name: editingGenreName } : g));
+		editingGenreId = null;
+	}
+
+	async function deleteGenre(id: string, name: string) {
+		if (!confirm(`Delete "${name}" and all its tracks? This cannot be undone.`)) return;
+		const res = await fetch(`/admin/genres/${id}`, {
+			method: 'DELETE',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ secret })
+		});
+		if (!res.ok) { alert(await res.text()); return; }
+		genres = genres.filter((g) => g.id !== id);
+		if (expandedId === id) expandedId = null;
+	}
+
+	function startEditTrack(track: Track) {
+		editingTrackId = track.id;
+		editingTrackTitle = track.title;
+	}
+
+	async function saveTrackTitle(genreId: string, trackId: string) {
+		const res = await fetch(`/admin/tracks/${trackId}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ secret, title: editingTrackTitle })
+		});
+		if (!res.ok) { alert(await res.text()); return; }
+		genres = genres.map((g) =>
+			g.id === genreId
+				? { ...g, tracks: g.tracks?.map((t) => (t.id === trackId ? { ...t, title: editingTrackTitle } : t)) }
+				: g
+		);
+		editingTrackId = null;
+	}
+
+	async function deleteTrack(genreId: string, trackId: string, title: string) {
+		if (!confirm(`Delete "${title}"?`)) return;
+		const res = await fetch(`/admin/tracks/${trackId}`, {
+			method: 'DELETE',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ secret })
+		});
+		if (!res.ok) { alert(await res.text()); return; }
+		genres = genres.map((g) =>
+			g.id === genreId ? { ...g, tracks: g.tracks?.filter((t) => t.id !== trackId) } : g
+		);
+	}
 
 	function getDuration(file: File): Promise<number> {
 		return new Promise((resolve) => {
 			const audio = new Audio();
 			const url = URL.createObjectURL(file);
-			audio.addEventListener('loadedmetadata', () => {
-				URL.revokeObjectURL(url);
-				resolve(Math.round(audio.duration) || 0);
-			});
-			audio.addEventListener('error', () => {
-				URL.revokeObjectURL(url);
-				resolve(0);
-			});
+			audio.addEventListener('loadedmetadata', () => { URL.revokeObjectURL(url); resolve(Math.round(audio.duration) || 0); });
+			audio.addEventListener('error', () => { URL.revokeObjectURL(url); resolve(0); });
 			audio.src = url;
 		});
 	}
 
-	async function submit(e: SubmitEvent) {
-		e.preventDefault();
-		const files = fileInput?.files;
+	async function uploadToGenre(genreId: string, genreName: string) {
+		const input = fileInputs[genreId];
+		const files = input?.files;
 		if (!files || files.length === 0) return;
 
-		running = true;
-		results = Array.from(files).map((f) => ({ name: f.name, status: 'pending', message: '' }));
+		uploading = true;
+		uploadResults[genreId] = Array.from(files).map((f) => ({ name: f.name, status: 'pending', message: '' }));
+
+		const newTracks: Track[] = [];
 
 		for (let i = 0; i < files.length; i++) {
 			const file = files[i];
 			const title = file.name.replace(/\.[^/.]+$/, '');
-			results[i] = { ...results[i], status: 'uploading' };
+			uploadResults[genreId][i] = { ...uploadResults[genreId][i], status: 'uploading' };
 
 			try {
 				const duration = await getDuration(file);
@@ -44,7 +161,7 @@
 				const signRes = await fetch('/admin/sign-upload', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ secret, genre, filename: file.name })
+					body: JSON.stringify({ secret, genre: genreName, filename: file.name })
 				});
 				if (!signRes.ok) throw new Error(await signRes.text());
 				const { path, token } = await signRes.json();
@@ -57,74 +174,174 @@
 				const trackRes = await fetch('/admin/tracks', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ secret, genre_name: genre, title, storage_path: path, duration_seconds: duration })
+					body: JSON.stringify({ secret, genre_name: genreName, title, storage_path: path, duration_seconds: duration })
 				});
 				if (!trackRes.ok) throw new Error(await trackRes.text());
+				const { id } = await trackRes.json();
 
-				results[i] = { ...results[i], status: 'done', message: `${duration}s` };
+				newTracks.push({ id, title, storage_path: path, duration_seconds: duration });
+				uploadResults[genreId][i] = { ...uploadResults[genreId][i], status: 'done', message: `${duration}s` };
 			} catch (err) {
-				results[i] = { ...results[i], status: 'error', message: String(err) };
+				uploadResults[genreId][i] = { ...uploadResults[genreId][i], status: 'error', message: String(err) };
 			}
 		}
 
-		running = false;
+		uploading = false;
+		if (newTracks.length > 0) {
+			genres = genres.map((g) =>
+				g.id === genreId ? { ...g, tracks: [...(g.tracks ?? []), ...newTracks].sort((a, b) => a.title.localeCompare(b.title)) } : g
+			);
+		}
+		if (input) input.value = '';
+	}
+
+	function trackCount(genre: Genre) {
+		return genre.tracks != null ? genre.tracks.length : '…';
 	}
 </script>
 
-<main class="mx-auto max-w-md p-8">
-	<h1 class="mb-6 text-2xl font-bold">Upload Tracks</h1>
+<main class="mx-auto max-w-2xl p-8 font-sans">
+	<h1 class="mb-6 text-2xl font-bold">MT Toolkit — Library</h1>
 
-	<form onsubmit={submit} class="flex flex-col gap-4">
-		<label class="flex flex-col gap-1 text-sm font-medium">
-			Admin secret
-			<input type="password" bind:value={secret} required class="rounded border px-3 py-2 font-mono text-sm" />
-		</label>
+	{#if !unlocked}
+		<form onsubmit={unlock} class="flex flex-col gap-3 max-w-xs">
+			<label class="flex flex-col gap-1 text-sm font-medium">
+				Admin secret
+				<input
+					type="password"
+					bind:value={secret}
+					required
+					autocomplete="current-password"
+					class="rounded border px-3 py-2 font-mono text-sm"
+				/>
+			</label>
+			<button
+				type="submit"
+				disabled={loading}
+				class="rounded bg-zinc-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+			>
+				{loading ? 'Loading…' : 'Unlock'}
+			</button>
+		</form>
 
-		<label class="flex flex-col gap-1 text-sm font-medium">
-			Genre name
-			<input type="text" bind:value={genre} placeholder="Pop" required class="rounded border px-3 py-2" />
-		</label>
-
-		<label class="flex flex-col gap-1 text-sm font-medium">
-			MP3 files
+	{:else}
+		<!-- New genre -->
+		<form onsubmit={createGenre} class="mb-8 flex gap-2">
 			<input
-				type="file"
-				accept="audio/mpeg,.mp3"
-				multiple
-				bind:this={fileInput}
-				required
-				class="rounded border px-3 py-2"
+				type="text"
+				bind:value={newGenreName}
+				placeholder="New genre name…"
+				class="flex-1 rounded border px-3 py-2 text-sm"
 			/>
-		</label>
+			<button
+				type="submit"
+				disabled={creatingGenre || !newGenreName.trim()}
+				class="rounded bg-zinc-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+			>
+				{creatingGenre ? 'Creating…' : '+ Genre'}
+			</button>
+		</form>
 
-		<button
-			type="submit"
-			disabled={running}
-			class="rounded bg-black px-4 py-2 text-white disabled:opacity-50"
-		>
-			{running ? 'Uploading…' : 'Upload'}
-		</button>
-	</form>
+		<!-- Genre list -->
+		{#if genres.length === 0}
+			<p class="text-sm text-zinc-500">No genres yet.</p>
+		{:else}
+			<div class="flex flex-col divide-y divide-zinc-200 rounded-lg border border-zinc-200">
+				{#each genres as genre (genre.id)}
+					<div>
+						<!-- Genre row -->
+						<div class="flex items-center gap-2 px-4 py-3">
+							<button
+								onclick={() => expandGenre(genre.id)}
+								class="mr-1 text-zinc-400 transition-transform {expandedId === genre.id ? 'rotate-90' : ''}"
+								aria-label="expand"
+							>▶</button>
 
-	{#if results.length > 0}
-		<ul class="mt-6 flex flex-col gap-2 text-sm">
-			{#each results as r}
-				<li class="flex items-center gap-2">
-					{#if r.status === 'pending'}
-						<span class="text-gray-400">–</span>
-					{:else if r.status === 'uploading'}
-						<span class="text-blue-500">↑</span>
-					{:else if r.status === 'done'}
-						<span class="text-green-600">✓</span>
-					{:else}
-						<span class="text-red-600">✗</span>
-					{/if}
-					<span class="flex-1 truncate">{r.name}</span>
-					{#if r.message}
-						<span class="text-gray-500">{r.message}</span>
-					{/if}
-				</li>
-			{/each}
-		</ul>
+							{#if editingGenreId === genre.id}
+								<input
+									bind:value={editingGenreName}
+									onkeydown={(e) => { if (e.key === 'Enter') saveGenreName(genre.id); if (e.key === 'Escape') editingGenreId = null; }}
+									class="flex-1 rounded border px-2 py-1 text-sm font-semibold"
+								/>
+								<button onclick={() => saveGenreName(genre.id)} class="text-sm text-emerald-600 hover:underline">Save</button>
+								<button onclick={() => editingGenreId = null} class="text-sm text-zinc-400 hover:underline">Cancel</button>
+							{:else}
+								<span class="flex-1 font-semibold">{genre.name}</span>
+								<span class="text-xs text-zinc-400">{trackCount(genre)} tracks</span>
+								<button onclick={() => startEditGenre(genre)} class="text-xs text-zinc-500 hover:text-zinc-900">Rename</button>
+								<button onclick={() => deleteGenre(genre.id, genre.name)} class="text-xs text-red-500 hover:text-red-700">Delete</button>
+							{/if}
+						</div>
+
+						<!-- Expanded: tracks + upload -->
+						{#if expandedId === genre.id}
+							<div class="border-t border-zinc-100 bg-zinc-50 px-4 py-3">
+								{#if loadingTracksFor === genre.id}
+									<p class="text-sm text-zinc-400">Loading…</p>
+								{:else if !genre.tracks || genre.tracks.length === 0}
+									<p class="mb-3 text-sm text-zinc-400">No tracks yet.</p>
+								{:else}
+									<ul class="mb-4 flex flex-col gap-1">
+										{#each genre.tracks as track (track.id)}
+											<li class="flex items-center gap-2 rounded px-2 py-1 hover:bg-zinc-100">
+												{#if editingTrackId === track.id}
+													<input
+														bind:value={editingTrackTitle}
+														onkeydown={(e) => { if (e.key === 'Enter') saveTrackTitle(genre.id, track.id); if (e.key === 'Escape') editingTrackId = null; }}
+														class="flex-1 rounded border px-2 py-1 text-sm"
+													/>
+													<button onclick={() => saveTrackTitle(genre.id, track.id)} class="text-xs text-emerald-600 hover:underline">Save</button>
+													<button onclick={() => editingTrackId = null} class="text-xs text-zinc-400 hover:underline">Cancel</button>
+												{:else}
+													<span class="flex-1 truncate text-sm">{track.title}</span>
+													{#if track.duration_seconds}
+														<span class="shrink-0 text-xs text-zinc-400">{track.duration_seconds}s</span>
+													{/if}
+													<button onclick={() => startEditTrack(track)} class="shrink-0 text-xs text-zinc-400 hover:text-zinc-900">Rename</button>
+													<button onclick={() => deleteTrack(genre.id, track.id, track.title)} class="shrink-0 text-xs text-red-400 hover:text-red-600">Delete</button>
+												{/if}
+											</li>
+										{/each}
+									</ul>
+								{/if}
+
+								<!-- Upload to this genre -->
+								<div class="flex items-center gap-2">
+									<input
+										type="file"
+										accept="audio/mpeg,.mp3"
+										multiple
+										bind:this={fileInputs[genre.id]}
+										class="flex-1 text-sm"
+									/>
+									<button
+										onclick={() => uploadToGenre(genre.id, genre.name)}
+										disabled={uploading}
+										class="shrink-0 rounded bg-zinc-800 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+									>
+										{uploading && uploadGenreId === genre.id ? 'Uploading…' : 'Upload'}
+									</button>
+								</div>
+
+								{#if uploadResults[genre.id]?.length > 0}
+									<ul class="mt-2 flex flex-col gap-1">
+										{#each uploadResults[genre.id] as r}
+											<li class="flex items-center gap-2 text-xs">
+												{#if r.status === 'pending'}<span class="text-zinc-400">–</span>
+												{:else if r.status === 'uploading'}<span class="text-blue-500">↑</span>
+												{:else if r.status === 'done'}<span class="text-emerald-600">✓</span>
+												{:else}<span class="text-red-500">✗</span>{/if}
+												<span class="flex-1 truncate">{r.name}</span>
+												{#if r.message}<span class="text-zinc-400">{r.message}</span>{/if}
+											</li>
+										{/each}
+									</ul>
+								{/if}
+							</div>
+						{/if}
+					</div>
+				{/each}
+			</div>
+		{/if}
 	{/if}
 </main>

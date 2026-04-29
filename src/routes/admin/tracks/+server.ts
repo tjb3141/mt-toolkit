@@ -30,13 +30,12 @@ export const POST: RequestHandler = async ({ request }) => {
 		genre_id = created.id;
 	}
 
-	const { error: tErr } = await admin.from('tracks').insert({
-		genre_id,
-		title,
-		storage_path,
-		duration_seconds
-	});
+	const { data: track, error: tErr } = await admin
+		.from('tracks')
+		.insert({ genre_id, title, storage_path, duration_seconds })
+		.select('id')
+		.single();
 	if (tErr) throw error(500, tErr.message);
 
-	return json({ ok: true });
+	return json({ ok: true, id: track.id, genre_id });
 };
