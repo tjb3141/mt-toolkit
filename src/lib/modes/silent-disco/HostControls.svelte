@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { supabase } from '$lib/supabase';
+	import HomeButton from '$lib/HomeButton.svelte';
 	import { onMount, onDestroy, untrack } from 'svelte';
 	import QRCode from 'qrcode';
 	import type { Session } from '$lib/modes/index';
@@ -92,9 +93,7 @@
 		<p class="text-xs font-semibold tracking-[0.3em] text-violet-400 uppercase">
 			MT Toolkit / Host
 		</p>
-		<a href="/" class="shrink-0 text-sm font-semibold text-zinc-500 hover:text-zinc-300">
-			Main menu
-		</a>
+		<HomeButton class="shrink-0" />
 	</div>
 
 	<div class="text-center">

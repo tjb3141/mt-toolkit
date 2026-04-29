@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { supabase } from '$lib/supabase';
+	import HomeButton from '$lib/HomeButton.svelte';
 	import { onMount, onDestroy, untrack } from 'svelte';
 	import QRCode from 'qrcode';
 	import type { Session } from '$lib/modes/index';
@@ -300,9 +301,7 @@
 			<p class="text-xs font-semibold tracking-[0.3em] text-violet-400 uppercase">
 				MT Toolkit / Partners / Host
 			</p>
-			<a href="/" class="shrink-0 text-sm font-semibold text-zinc-500 hover:text-zinc-300">
-				Main menu
-			</a>
+			<HomeButton class="shrink-0" />
 		</div>
 
 		<div class="text-center">
@@ -366,9 +365,7 @@
 						: 'Tap two participants to pair them.'}
 				</p>
 			</div>
-			<a href="/" class="shrink-0 text-sm font-semibold text-zinc-500 hover:text-zinc-300">
-				Main menu
-			</a>
+			<HomeButton class="shrink-0" />
 		</div>
 
 		{#if assignmentMode === 'manual'}
@@ -475,9 +472,7 @@
 				<span class="text-xs text-zinc-500"
 					>{pairs.filter((p) => p.found).length}/{pairs.length} found</span
 				>
-				<a href="/" class="shrink-0 text-sm font-semibold text-zinc-500 hover:text-zinc-300">
-					Main menu
-				</a>
+				<HomeButton class="shrink-0" />
 			</div>
 		</div>
 
@@ -572,6 +567,6 @@
 		</p>
 		<p class="text-2xl font-black">Session complete</p>
 		<p class="text-zinc-500">All pairs found. Great session!</p>
-		<a href="/" class="text-sm font-semibold text-zinc-500 hover:text-zinc-300"> Main menu </a>
+		<HomeButton />
 	</div>
 {/if}

@@ -3,6 +3,8 @@
 	import { page } from '$app/state';
 
 	let code = $state('');
+	let adminTapCount = $state(0);
+	let adminTapTimer: ReturnType<typeof setTimeout> | null = null;
 	let invalid = $derived(page.url.searchParams.get('error') === 'invalid');
 
 	function join(e: SubmitEvent) {
@@ -10,11 +12,32 @@
 		const trimmed = code.trim().toUpperCase();
 		if (trimmed.length === 6) goto(`/join/${trimmed}`);
 	}
+
+	function secretAdminTap() {
+		if (adminTapTimer) clearTimeout(adminTapTimer);
+		adminTapCount += 1;
+
+		if (adminTapCount >= 7) {
+			goto('/admin');
+			return;
+		}
+
+		adminTapTimer = setTimeout(() => {
+			adminTapCount = 0;
+		}, 1400);
+	}
 </script>
 
 <main class="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-8 px-6 py-10">
 	<div>
-		<p class="mb-2 text-sm font-semibold tracking-[0.3em] text-violet-400 uppercase">MT Toolkit</p>
+		<button
+			type="button"
+			onclick={secretAdminTap}
+			aria-label="MT Toolkit"
+			class="mb-2 text-left text-sm font-semibold tracking-[0.3em] text-violet-400 uppercase"
+		>
+			MT Toolkit
+		</button>
 		<h1 class="text-5xl font-black tracking-tight">Main menu</h1>
 		<p class="mt-3 text-sm leading-6 text-zinc-400">
 			Join from the room code, or start a host session for the group.

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import HomeButton from '$lib/HomeButton.svelte';
 	import { supabase } from '$lib/supabase';
 	import { modes } from '$lib/modes/index';
 
@@ -42,9 +43,7 @@
 </script>
 
 <main class="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-8 px-6 py-10">
-	<a href="/" class="self-start text-sm font-semibold text-zinc-500 hover:text-zinc-300">
-		Back to main menu
-	</a>
+	<HomeButton class="self-start" />
 
 	<div>
 		<p class="mb-2 text-sm font-semibold tracking-[0.3em] text-violet-400 uppercase">MT Toolkit</p>
