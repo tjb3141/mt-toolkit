@@ -191,6 +191,7 @@
 		if (selectedGenreId) trackQuery.eq('genre_id', selectedGenreId);
 		const { data: trackData } = await trackQuery;
 		const shuffledTracks = shuffle(trackData ?? []);
+		const trackMap = Object.fromEntries((trackData ?? []).map((t) => [t.id, t.title]));
 
 		const pairRows = pendingPairs.map((pair, i) => ({
 			session_id: session.id,
@@ -200,12 +201,27 @@
 			found: false
 		}));
 
-		await supabase.from('partners_pairs').insert(pairRows);
+		// Use .select() to get inserted IDs back — build pairs directly, never re-query old rows
+		const { data: inserted } = await supabase
+			.from('partners_pairs')
+			.insert(pairRows)
+			.select('id, participant_1_id, participant_2_id, track_id, found');
+
 		await supabase.from('sessions').update({ playback_state: 'playing' }).eq('id', session.id);
+
+		const p1Map = Object.fromEntries(pendingPairs.map((p) => [p.p1.id, p]));
+		pairs = (inserted ?? []).map((row) => ({
+			...row,
+			p1Name: p1Map[row.participant_1_id]?.p1.name ?? '?',
+			p2Name: p1Map[row.participant_1_id]?.p2.name ?? '?',
+			trackTitle: row.track_id ? (trackMap[row.track_id] ?? '?') : '—'
+		}));
+
+		if (pairsChannel) await supabase.removeChannel(pairsChannel);
+		subscribeToPairs();
 
 		localPhase = 'playing';
 		startingGame = false;
-		await loadLivePairs();
 	}
 
 	async function markFound(pairId: string) {
@@ -215,25 +231,36 @@
 
 	async function restartSamePairs() {
 		startingGame = true;
-		// Reset found immediately so the UI clears before the round-trip completes
-		pairs = pairs.map((p) => ({ ...p, found: false }));
 
 		const trackQuery = supabase.from('tracks').select('id, title');
 		if (selectedGenreId) trackQuery.eq('genre_id', selectedGenreId);
 		const { data: trackData } = await trackQuery;
 		const shuffledTracks = shuffle(trackData ?? []);
+		const trackMap = Object.fromEntries((trackData ?? []).map((t) => [t.id, t.title]));
+
+		// Assign new tracks to each pair and reset found — capture assignments before the async spread
+		const assignments = pairs.map((pair, i) => ({
+			id: pair.id,
+			trackId: shuffledTracks[i % shuffledTracks.length]?.id ?? null
+		}));
 
 		await Promise.all(
-			pairs.map((pair, i) =>
-				supabase
-					.from('partners_pairs')
-					.update({ found: false, track_id: shuffledTracks[i % shuffledTracks.length]?.id ?? null })
-					.eq('id', pair.id)
-					.then()
+			assignments.map(({ id, trackId }) =>
+				supabase.from('partners_pairs').update({ found: false, track_id: trackId }).eq('id', id).then()
 			)
 		);
 
-		await loadLivePairs();
+		// Update local state immediately — no DB re-query, no stale rows
+		pairs = pairs.map((pair, i) => ({
+			...pair,
+			found: false,
+			track_id: assignments[i].trackId,
+			trackTitle: assignments[i].trackId ? (trackMap[assignments[i].trackId!] ?? '?') : '—'
+		}));
+
+		if (pairsChannel) await supabase.removeChannel(pairsChannel);
+		subscribeToPairs();
+
 		startingGame = false;
 	}
 

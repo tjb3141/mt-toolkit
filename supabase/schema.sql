@@ -61,3 +61,21 @@ alter publication supabase_realtime add table participants;
 
 -- Migration: add current_track column
 -- alter table participants add column if not exists current_track text;
+
+-- Partners pairs: one row per pair per game round
+create table partners_pairs (
+  id uuid primary key default gen_random_uuid(),
+  session_id uuid not null references sessions(id) on delete cascade,
+  participant_1_id uuid not null references participants(id),
+  participant_2_id uuid not null references participants(id),
+  track_id uuid references tracks(id),
+  found boolean not null default false,
+  created_at timestamptz not null default now()
+);
+alter table partners_pairs enable row level security;
+create policy "partners_pairs readable by all" on partners_pairs for select using (true);
+create policy "partners_pairs insertable by all" on partners_pairs for insert with check (true);
+create policy "partners_pairs updatable by all" on partners_pairs for update using (true);
+create policy "partners_pairs deletable by all" on partners_pairs for delete using (true);
+alter publication supabase_realtime add table partners_pairs;
+alter table partners_pairs replica identity full;
