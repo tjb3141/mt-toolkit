@@ -95,12 +95,16 @@
 	});
 
 	// Report current track to host
+	// Must call .then() — supabase query builders are lazy and never fire without it
 	$effect(() => {
 		const _pid = participantId;
 		const _tracks = tracks;
 		const _index = currentIndex;
 		if (!_pid || _tracks.length === 0) return;
-		supabase.from('participants').update({ current_track: _tracks[_index].title }).eq('id', _pid);
+		supabase.from('participants')
+			.update({ current_track: _tracks[_index].title })
+			.eq('id', _pid)
+			.then(({ error }) => { if (error) console.error('current_track update failed:', error); });
 	});
 </script>
 
