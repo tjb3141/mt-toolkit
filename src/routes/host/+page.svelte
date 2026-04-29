@@ -39,30 +39,38 @@
 	}
 </script>
 
-<main class="flex min-h-screen flex-col items-center justify-center p-8">
-	<div class="flex flex-col items-center gap-6">
-		<h1 class="text-3xl font-bold">Host a Session</h1>
-
-		<div class="flex flex-col gap-2">
-			<p class="text-sm font-medium text-gray-600">Mode</p>
-			{#each Object.entries(modes) as [key, m]}
-				<label class="flex cursor-pointer items-center gap-3">
-					<input type="radio" bind:group={selectedMode} value={key} class="accent-black" />
-					<span class="font-medium">{m.label}</span>
-				</label>
-			{/each}
-		</div>
-
-		{#if error}
-			<p class="text-sm text-red-500">{error}</p>
-		{/if}
-
-		<button
-			onclick={createSession}
-			disabled={creating}
-			class="rounded-xl bg-black px-8 py-3 font-semibold text-white disabled:opacity-50"
-		>
-			{creating ? 'Creating…' : 'Create session'}
-		</button>
+<main class="flex min-h-screen flex-col items-center justify-center gap-10 p-8">
+	<div class="text-center">
+		<p class="mb-2 text-sm font-semibold uppercase tracking-[0.3em] text-violet-400">MT Toolkit</p>
+		<h1 class="text-5xl font-black tracking-tight">Start a session</h1>
 	</div>
+
+	<div class="flex w-full max-w-xs flex-col gap-3">
+		<p class="text-xs font-semibold uppercase tracking-widest text-zinc-500">Mode</p>
+		{#each Object.entries(modes) as [key, m]}
+			<label
+				class="flex cursor-pointer items-center gap-4 rounded-2xl border-2 px-5 py-4 transition-colors {selectedMode === key ? 'border-violet-500 bg-violet-950' : 'border-zinc-800 bg-zinc-900 hover:border-zinc-600'}"
+			>
+				<input type="radio" bind:group={selectedMode} value={key} class="hidden" />
+				<div class="flex flex-col">
+					<span class="font-bold">{m.label}</span>
+				</div>
+				{#if selectedMode === key}
+					<span class="ml-auto text-violet-400">✓</span>
+				{/if}
+			</label>
+		{/each}
+	</div>
+
+	{#if error}
+		<p class="text-sm text-red-400">{error}</p>
+	{/if}
+
+	<button
+		onclick={createSession}
+		disabled={creating}
+		class="w-full max-w-xs rounded-2xl bg-violet-600 py-4 text-lg font-bold text-white transition-colors hover:bg-violet-500 disabled:opacity-30"
+	>
+		{creating ? 'Creating…' : 'Create session'}
+	</button>
 </main>

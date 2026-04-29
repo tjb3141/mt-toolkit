@@ -20,7 +20,7 @@
 
 	onMount(async () => {
 		const url = `${window.location.origin}/join/${session.code}`;
-		qrDataUrl = await QRCode.toDataURL(url, { margin: 2, scale: 6 });
+		qrDataUrl = await QRCode.toDataURL(url, { margin: 2, scale: 6, color: { dark: '#ffffff', light: '#18181b' } });
 
 		const { data: genreData } = await supabase.from('genres').select('id, name');
 		genreMap = Object.fromEntries((genreData ?? []).map((g) => [g.id, g.name]));
@@ -34,21 +34,11 @@
 
 		channel = supabase
 			.channel(`participants:${session.id}`)
-			.on(
-				'postgres_changes',
-				{ event: 'INSERT', schema: 'public', table: 'participants', filter: `session_id=eq.${session.id}` },
-				(payload) => {
-					participants = [...participants, payload.new as Participant];
-				}
+			.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'participants', filter: `session_id=eq.${session.id}` },
+				(payload) => { participants = [...participants, payload.new as Participant]; }
 			)
-			.on(
-				'postgres_changes',
-				{ event: 'UPDATE', schema: 'public', table: 'participants', filter: `session_id=eq.${session.id}` },
-				(payload) => {
-					participants = participants.map((p) =>
-						p.id === payload.new.id ? (payload.new as Participant) : p
-					);
-				}
+			.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'participants', filter: `session_id=eq.${session.id}` },
+				(payload) => { participants = participants.map((p) => p.id === payload.new.id ? (payload.new as Participant) : p); }
 			)
 			.subscribe();
 	});
@@ -70,41 +60,47 @@
 </script>
 
 <div class="flex min-h-screen flex-col items-center gap-8 p-8">
+	<p class="text-xs font-semibold uppercase tracking-[0.3em] text-violet-400">MT Toolkit · Host</p>
+
 	<div class="text-center">
-		<p class="mb-1 text-sm uppercase tracking-widest text-gray-500">Session code</p>
-		<p class="text-6xl font-bold tracking-widest">{session.code}</p>
+		<p class="mb-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">Session code</p>
+		<p class="text-7xl font-black tracking-widest">{session.code}</p>
 	</div>
 
 	{#if qrDataUrl}
-		<img src={qrDataUrl} alt="QR code to join session" class="h-48 w-48" />
+		<div class="rounded-2xl bg-zinc-900 p-3">
+			<img src={qrDataUrl} alt="QR code to join session" class="h-44 w-44" />
+		</div>
 	{/if}
 
-	<p class="text-sm text-gray-400">{joinUrl}</p>
+	<p class="max-w-xs break-all text-center text-xs text-zinc-500">{joinUrl}</p>
 
 	{#if playbackState !== 'ended'}
 		<button
 			onclick={toggle}
-			class="h-32 w-32 rounded-full text-2xl font-bold text-white transition-colors {playbackState === 'playing' ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'}"
+			class="h-36 w-36 rounded-full text-2xl font-black text-white shadow-lg transition-all active:scale-95 {playbackState === 'playing' ? 'bg-red-500 hover:bg-red-400 shadow-red-900' : 'bg-emerald-500 hover:bg-emerald-400 shadow-emerald-900'}"
 		>
 			{playbackState === 'playing' ? 'Pause' : 'Play'}
 		</button>
-		<button onclick={endSession} class="text-sm text-gray-400 underline">End session</button>
+		<button onclick={endSession} class="text-sm text-zinc-600 underline underline-offset-4 hover:text-zinc-400">
+			End session
+		</button>
 	{:else}
-		<p class="text-gray-500">Session ended.</p>
+		<p class="text-zinc-500">Session ended.</p>
 	{/if}
 
 	<div class="w-full max-w-sm">
-		<p class="mb-3 text-sm font-semibold uppercase tracking-widest text-gray-500">
+		<p class="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-500">
 			Participants ({participants.length})
 		</p>
 		{#if participants.length === 0}
-			<p class="text-sm text-gray-400">No one has joined yet.</p>
+			<p class="text-sm text-zinc-600">No one has joined yet.</p>
 		{:else}
 			<ul class="flex flex-col gap-2">
 				{#each participants as p (p.id)}
-					<li class="flex items-center justify-between rounded-xl border border-gray-100 px-4 py-3">
-						<span class="font-medium">{p.name}</span>
-						<span class="text-sm text-gray-400">
+					<li class="flex items-center justify-between rounded-2xl bg-zinc-900 px-5 py-4">
+						<span class="font-semibold">{p.name}</span>
+						<span class="text-sm text-zinc-400">
 							{p.genre_id ? genreMap[p.genre_id] ?? '…' : 'picking…'}
 						</span>
 					</li>

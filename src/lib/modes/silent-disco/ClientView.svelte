@@ -15,7 +15,6 @@
 	let selectedGenre = $state<Genre | null>(null);
 	let tracks = $state<Track[]>([]);
 	let currentIndex = $state(0);
-	// untrack: intentionally capturing initial value only — managed locally after that
 	let playbackState = $state(untrack(() => session.playback_state));
 	let audioEl = $state<HTMLAudioElement | null>(null);
 	let submittingName = $state(false);
@@ -35,8 +34,7 @@
 
 		channel = supabase
 			.channel(`session:${session.id}`)
-			.on(
-				'postgres_changes',
+			.on('postgres_changes',
 				{ event: 'UPDATE', schema: 'public', table: 'sessions', filter: `id=eq.${session.id}` },
 				(payload) => {
 					const newState = payload.new.playback_state;
@@ -90,13 +88,14 @@
 		const state = untrack(() => playbackState);
 		if (state === 'playing') audioEl.play().catch(() => {});
 	});
-
-
 </script>
 
 {#if !participantId}
-	<div class="flex min-h-screen flex-col items-center justify-center gap-6 p-8">
-		<h2 class="text-2xl font-bold">What's your name?</h2>
+	<div class="flex min-h-screen flex-col items-center justify-center gap-8 p-8">
+		<div class="text-center">
+			<p class="mb-2 text-xs font-semibold uppercase tracking-[0.3em] text-violet-400">MT Toolkit</p>
+			<h1 class="text-4xl font-black">What's your name?</h1>
+		</div>
 		<form onsubmit={submitName} class="flex flex-col items-center gap-4">
 			<input
 				bind:value={name}
@@ -104,49 +103,65 @@
 				required
 				maxlength="32"
 				autocomplete="off"
-				class="w-56 rounded-xl border-2 border-gray-300 px-4 py-3 text-center text-xl focus:border-black focus:outline-none"
+				class="w-64 rounded-2xl border-2 border-zinc-700 bg-zinc-900 px-6 py-4 text-center text-2xl font-bold text-white placeholder:text-zinc-600 focus:border-violet-500 focus:outline-none"
 			/>
 			<button
 				type="submit"
 				disabled={submittingName || name.trim().length === 0}
-				class="w-56 rounded-xl bg-black py-3 font-semibold text-white disabled:opacity-40"
+				class="w-64 rounded-2xl bg-violet-600 py-4 text-lg font-bold text-white transition-colors hover:bg-violet-500 disabled:opacity-30"
 			>
-				{submittingName ? 'Joining…' : 'Join'}
+				{submittingName ? 'Joining…' : "Let's go"}
 			</button>
 		</form>
 	</div>
+
 {:else if !selectedGenre}
-	<div class="flex flex-col gap-4 p-8">
-		<h2 class="text-2xl font-bold">Pick your vibe, {name}</h2>
-		{#each genres as genre}
-			<button
-				onclick={() => selectGenre(genre)}
-				class="rounded-2xl border-2 border-gray-200 p-6 text-left text-xl font-semibold hover:border-black hover:bg-gray-50 active:bg-gray-100"
-			>
-				{genre.name}
-			</button>
-		{/each}
+	<div class="flex min-h-screen flex-col gap-6 p-8">
+		<div class="pt-4">
+			<p class="text-xs font-semibold uppercase tracking-[0.3em] text-violet-400">MT Toolkit</p>
+			<h2 class="mt-2 text-4xl font-black leading-tight">Pick your<br />vibe, {name}</h2>
+		</div>
+		<div class="flex flex-col gap-3">
+			{#each genres as genre}
+				<button
+					onclick={() => selectGenre(genre)}
+					class="rounded-2xl bg-zinc-900 px-6 py-6 text-left text-2xl font-black tracking-tight transition-all hover:bg-zinc-800 active:scale-95"
+				>
+					{genre.name}
+				</button>
+			{/each}
+		</div>
 	</div>
+
 {:else if tracks.length === 0}
-	<div class="p-8 text-gray-400">Loading tracks…</div>
+	<div class="flex min-h-screen items-center justify-center">
+		<p class="text-zinc-500">Loading tracks…</p>
+	</div>
+
 {:else}
-	<div class="flex flex-col gap-6 p-8">
+	<div class="flex min-h-screen flex-col justify-between p-8">
 		<div>
-			<p class="text-sm uppercase tracking-widest text-gray-400">{selectedGenre.name}</p>
-			<p class="mt-1 text-lg font-semibold">{tracks[currentIndex].title}</p>
+			<p class="text-xs font-semibold uppercase tracking-[0.3em] text-violet-400">MT Toolkit</p>
+			<p class="mt-1 text-sm text-zinc-500">{selectedGenre.name}</p>
+		</div>
+
+		<div class="flex flex-col gap-2">
+			{#if playbackState === 'playing'}
+				<p class="text-xs font-semibold uppercase tracking-widest text-emerald-400">Now playing</p>
+			{:else if playbackState === 'ended'}
+				<p class="text-xs font-semibold uppercase tracking-widest text-zinc-500">Session ended</p>
+			{:else}
+				<p class="text-xs font-semibold uppercase tracking-widest text-zinc-500">Waiting for host…</p>
+			{/if}
+			<p class="text-3xl font-black leading-tight">{tracks[currentIndex].title}</p>
+			<p class="text-sm text-zinc-500">Track {currentIndex + 1} of {tracks.length}</p>
 		</div>
 
 		<audio bind:this={audioEl} onended={nextTrack}></audio>
 
-{#if playbackState === 'ended'}
-			<p class="text-gray-400">Session ended. Thanks for listening!</p>
-		{:else if playbackState !== 'playing'}
-			<p class="text-sm text-gray-400">Waiting for the host to start…</p>
-		{/if}
-
 		<button
 			onclick={() => { selectedGenre = null; tracks = []; }}
-			class="text-left text-sm text-gray-400 underline"
+			class="text-left text-sm text-zinc-600 underline underline-offset-4 hover:text-zinc-400"
 		>
 			Change genre
 		</button>
