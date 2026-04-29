@@ -1,15 +1,16 @@
 import { json, error } from '@sveltejs/kit';
-import { ADMIN_SECRET, SUPABASE_SERVICE_KEY } from '$env/static/private';
 import { PUBLIC_SUPABASE_URL } from '$env/static/public';
 import { createClient } from '@supabase/supabase-js';
 import type { RequestHandler } from './$types';
 
-const admin = createClient(PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_KEY);
-
 export const POST: RequestHandler = async ({ request }) => {
+	const adminSecret = process.env.ADMIN_SECRET ?? '';
+	const serviceKey = process.env.SUPABASE_SERVICE_KEY ?? '';
+	const admin = createClient(PUBLIC_SUPABASE_URL, serviceKey);
+
 	const { secret, genre_name, title, storage_path, duration_seconds } = await request.json();
 
-	if (secret !== ADMIN_SECRET) throw error(401, 'Unauthorized');
+	if (!adminSecret || secret !== adminSecret) throw error(401, 'Unauthorized');
 
 	const { data: existing } = await admin
 		.from('genres')
