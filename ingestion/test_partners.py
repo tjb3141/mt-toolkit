@@ -1,5 +1,5 @@
 """
-Partners mode test helper — opens 4 browser windows, each joining a session.
+Partners mode test helper — opens 6 browser windows, each joining a session.
 
 Usage:
     python test_partners.py <CODE> [base_url]
@@ -38,9 +38,9 @@ async def main():
 
     code = sys.argv[1].strip().upper()
     base_url = sys.argv[2].rstrip("/") if len(sys.argv) > 2 else DEFAULT_URL
-    names = random.sample(NAMES, 4)
+    names = random.sample(NAMES, 6)
 
-    print(f"\nOpening 4 clients → {base_url}/join/{code}")
+    print(f"\nOpening 6 clients → {base_url}/join/{code}")
     print(f"Names: {', '.join(names)}\n")
 
     async with async_playwright() as p:
@@ -55,7 +55,7 @@ async def main():
             pages.append(page)
             await asyncio.sleep(0.3)
 
-        print(f"\nAll 4 joined. Go assign partners on the host page.")
+        print(f"\nAll 6 joined. Go assign partners on the host page.")
         print("Press Enter here to close all browsers when done.")
         await asyncio.get_event_loop().run_in_executor(None, input)
 
