@@ -42,3 +42,19 @@ alter publication supabase_realtime add table sessions;
 
 -- Make tracks bucket publicly readable (required for HTML5 audio src)
 update storage.buckets set public = true where id = 'tracks';
+
+-- Participants: clients who join a session
+create table participants (
+  id uuid primary key default gen_random_uuid(),
+  session_id uuid not null references sessions(id) on delete cascade,
+  name text not null,
+  genre_id uuid references genres(id),
+  joined_at timestamptz not null default now()
+);
+
+alter table participants enable row level security;
+create policy "participants readable by all" on participants for select using (true);
+create policy "participants insertable by all" on participants for insert with check (true);
+create policy "participants updatable by all" on participants for update using (true);
+
+alter publication supabase_realtime add table participants;
