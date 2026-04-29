@@ -8,8 +8,8 @@ export const POST: RequestHandler = async ({ request }) => {
 	const serviceKey = process.env.SUPABASE_SERVICE_KEY ?? '';
 	const admin = createClient(PUBLIC_SUPABASE_URL, serviceKey);
 
-	const { secret, name } = await request.json();
-	if (!adminSecret || secret !== adminSecret) throw error(401, 'Unauthorized');
+	if (!adminSecret || request.headers.get('x-admin-secret') !== adminSecret) throw error(401, 'Unauthorized');
+	const { name } = await request.json();
 	if (!name?.trim()) throw error(400, 'name required');
 
 	const { data, error: err } = await admin

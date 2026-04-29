@@ -53,14 +53,18 @@
 		genres = genres.map((g) => (g.id === id ? { ...g, tracks: data ?? [] } : g));
 	}
 
+	function ah(extra?: Record<string, string>) {
+		return { 'Content-Type': 'application/json', 'x-admin-secret': secret, ...extra };
+	}
+
 	async function createGenre(e: SubmitEvent) {
 		e.preventDefault();
 		if (!newGenreName.trim()) return;
 		creatingGenre = true;
 		const res = await fetch('/admin/genres', {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ secret, name: newGenreName.trim() })
+			headers: ah(),
+			body: JSON.stringify({ name: newGenreName.trim() })
 		});
 		creatingGenre = false;
 		if (!res.ok) { alert(await res.text()); return; }
@@ -77,8 +81,8 @@
 	async function saveGenreName(id: string) {
 		const res = await fetch(`/admin/genres/${id}`, {
 			method: 'PATCH',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ secret, name: editingGenreName })
+			headers: ah(),
+			body: JSON.stringify({ name: editingGenreName })
 		});
 		if (!res.ok) { alert(await res.text()); return; }
 		genres = genres.map((g) => (g.id === id ? { ...g, name: editingGenreName } : g));
@@ -87,11 +91,7 @@
 
 	async function deleteGenre(id: string, name: string) {
 		if (!confirm(`Delete "${name}" and all its tracks? This cannot be undone.`)) return;
-		const res = await fetch(`/admin/genres/${id}`, {
-			method: 'DELETE',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ secret })
-		});
+		const res = await fetch(`/admin/genres/${id}`, { method: 'DELETE', headers: ah() });
 		if (!res.ok) { alert(await res.text()); return; }
 		genres = genres.filter((g) => g.id !== id);
 		if (expandedId === id) expandedId = null;
@@ -105,8 +105,8 @@
 	async function saveTrackTitle(genreId: string, trackId: string) {
 		const res = await fetch(`/admin/tracks/${trackId}`, {
 			method: 'PATCH',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ secret, title: editingTrackTitle })
+			headers: ah(),
+			body: JSON.stringify({ title: editingTrackTitle })
 		});
 		if (!res.ok) { alert(await res.text()); return; }
 		genres = genres.map((g) =>
@@ -119,11 +119,7 @@
 
 	async function deleteTrack(genreId: string, trackId: string, title: string) {
 		if (!confirm(`Delete "${title}"?`)) return;
-		const res = await fetch(`/admin/tracks/${trackId}`, {
-			method: 'DELETE',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ secret })
-		});
+		const res = await fetch(`/admin/tracks/${trackId}`, { method: 'DELETE', headers: ah() });
 		if (!res.ok) { alert(await res.text()); return; }
 		genres = genres.map((g) =>
 			g.id === genreId ? { ...g, tracks: g.tracks?.filter((t) => t.id !== trackId) } : g
@@ -160,8 +156,8 @@
 
 				const signRes = await fetch('/admin/sign-upload', {
 					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ secret, genre: genreName, filename: file.name })
+					headers: ah(),
+					body: JSON.stringify({ genre: genreName, filename: file.name })
 				});
 				if (!signRes.ok) throw new Error(await signRes.text());
 				const { path, token } = await signRes.json();
@@ -173,8 +169,8 @@
 
 				const trackRes = await fetch('/admin/tracks', {
 					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ secret, genre_name: genreName, title, storage_path: path, duration_seconds: duration })
+					headers: ah(),
+					body: JSON.stringify({ genre_name: genreName, title, storage_path: path, duration_seconds: duration })
 				});
 				if (!trackRes.ok) throw new Error(await trackRes.text());
 				const { id } = await trackRes.json();

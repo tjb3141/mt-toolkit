@@ -8,14 +8,14 @@ function adminClient() {
 	return createClient(PUBLIC_SUPABASE_URL, serviceKey);
 }
 
-function checkAuth(secret: string) {
+function checkAuth(request: Request) {
 	const adminSecret = process.env.ADMIN_SECRET ?? '';
-	if (!adminSecret || secret !== adminSecret) throw error(401, 'Unauthorized');
+	if (!adminSecret || request.headers.get('x-admin-secret') !== adminSecret) throw error(401, 'Unauthorized');
 }
 
 export const PATCH: RequestHandler = async ({ request, params }) => {
-	const { secret, title } = await request.json();
-	checkAuth(secret);
+	checkAuth(request);
+	const { title } = await request.json();
 	if (!title?.trim()) throw error(400, 'title required');
 
 	const { error: err } = await adminClient().from('tracks').update({ title: title.trim() }).eq('id', params.id);
@@ -25,8 +25,7 @@ export const PATCH: RequestHandler = async ({ request, params }) => {
 };
 
 export const DELETE: RequestHandler = async ({ request, params }) => {
-	const { secret } = await request.json();
-	checkAuth(secret);
+	checkAuth(request);
 
 	const admin = adminClient();
 
