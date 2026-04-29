@@ -8,6 +8,7 @@
 	let { session }: { session: Session } = $props();
 
 	type Participant = { id: string; name: string; joined_at: string };
+	type Genre = { id: string; name: string };
 	type PendingPair = { p1: Participant; p2: Participant };
 	type LivePair = {
 		id: string;
@@ -22,6 +23,8 @@
 
 	let qrDataUrl = $state('');
 	let participants = $state<Participant[]>([]);
+	let genres = $state<Genre[]>([]);
+	let selectedGenreId = $state<string | null>(null);
 	let pendingPairs = $state<PendingPair[]>([]);
 	let unpaired = $state<Participant[]>([]);
 	let selecting = $state<Participant | null>(null);
@@ -54,12 +57,12 @@
 			color: { dark: '#ffffff', light: '#18181b' }
 		});
 
-		const { data } = await supabase
-			.from('participants')
-			.select('id, name, joined_at')
-			.eq('session_id', session.id)
-			.order('joined_at');
-		participants = data ?? [];
+		const [{ data: pData }, { data: gData }] = await Promise.all([
+			supabase.from('participants').select('id, name, joined_at').eq('session_id', session.id).order('joined_at'),
+			supabase.from('genres').select('id, name').order('display_order')
+		]);
+		participants = pData ?? [];
+		genres = gData ?? [];
 
 		if (localPhase === 'playing') {
 			await loadLivePairs();
@@ -183,7 +186,9 @@
 
 	async function startGame() {
 		startingGame = true;
-		const { data: trackData } = await supabase.from('tracks').select('id, title');
+		const trackQuery = supabase.from('tracks').select('id, title');
+		if (selectedGenreId) trackQuery.eq('genre_id', selectedGenreId);
+		const { data: trackData } = await trackQuery;
 		const shuffledTracks = shuffle(trackData ?? []);
 
 		const pairRows = pendingPairs.map((pair, i) => ({
@@ -209,7 +214,9 @@
 
 	async function restartSamePairs() {
 		startingGame = true;
-		const { data: trackData } = await supabase.from('tracks').select('id, title');
+		const trackQuery = supabase.from('tracks').select('id, title');
+		if (selectedGenreId) trackQuery.eq('genre_id', selectedGenreId);
+		const { data: trackData } = await trackQuery;
 		const shuffledTracks = shuffle(trackData ?? []);
 
 		await Promise.all(
@@ -365,6 +372,26 @@
 				{unpaired.length} person{unpaired.length !== 1 ? 's' : ''} unpaired — they won't play.
 			</p>
 		{/if}
+
+		<div>
+			<p class="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-500">Genre</p>
+			<div class="flex flex-wrap gap-2">
+				<button
+					onclick={() => (selectedGenreId = null)}
+					class="rounded-xl px-4 py-2 text-sm font-semibold transition-all {selectedGenreId === null ? 'bg-violet-600 text-white' : 'bg-zinc-800 text-white hover:bg-zinc-700'}"
+				>
+					All genres
+				</button>
+				{#each genres as g (g.id)}
+					<button
+						onclick={() => (selectedGenreId = g.id)}
+						class="rounded-xl px-4 py-2 text-sm font-semibold transition-all {selectedGenreId === g.id ? 'bg-violet-600 text-white' : 'bg-zinc-800 text-white hover:bg-zinc-700'}"
+					>
+						{g.name}
+					</button>
+				{/each}
+			</div>
+		</div>
 
 		<div class="mt-auto flex gap-3">
 			<button
