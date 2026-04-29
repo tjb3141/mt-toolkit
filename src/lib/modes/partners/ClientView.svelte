@@ -20,8 +20,8 @@
 	let channel: RealtimeChannel | null = null;
 	let pairChannel: RealtimeChannel | null = null;
 
-	function getUrl(storagePath: string) {
-		return supabase.storage.from('tracks').getPublicUrl(storagePath).data.publicUrl;
+	function getUrl(trackId: string) {
+		return `/api/audio/${trackId}?session=${session.id}`;
 	}
 
 	onMount(() => {
@@ -128,7 +128,7 @@
 		const _track = track;
 		const _audioEl = audioEl;
 		if (!_track || !_audioEl) return;
-		_audioEl.src = getUrl(_track.storage_path);
+		_audioEl.src = getUrl(_track.id);
 		const state = untrack(() => playbackState);
 		if (state === 'playing') _audioEl.play().catch(() => {});
 	});

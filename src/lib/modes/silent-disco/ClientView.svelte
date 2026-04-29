@@ -24,8 +24,8 @@
 		return [...arr].sort(() => Math.random() - 0.5);
 	}
 
-	function getUrl(storagePath: string) {
-		return supabase.storage.from('tracks').getPublicUrl(storagePath).data.publicUrl;
+	function getUrl(trackId: string) {
+		return `/api/audio/${trackId}?session=${session.id}`;
 	}
 
 	onMount(async () => {
@@ -89,7 +89,7 @@
 		const _tracks = tracks;
 		const _index = currentIndex;
 		if (!audioEl || _tracks.length === 0) return;
-		audioEl.src = getUrl(_tracks[_index].storage_path);
+		audioEl.src = getUrl(_tracks[_index].id);
 		const state = untrack(() => playbackState);
 		if (state === 'playing') audioEl.play().catch(() => {});
 	});

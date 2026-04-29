@@ -79,3 +79,21 @@ create policy "partners_pairs updatable by all" on partners_pairs for update usi
 create policy "partners_pairs deletable by all" on partners_pairs for delete using (true);
 alter publication supabase_realtime add table partners_pairs;
 alter table partners_pairs replica identity full;
+
+-- Auto-expire sessions after 2 hours via pg_cron (run once in Supabase SQL editor)
+-- Requires pg_cron extension to be enabled in the Supabase dashboard first:
+--   Dashboard → Database → Extensions → pg_cron → Enable
+--
+-- select cron.schedule(
+--   'expire-old-sessions',
+--   '*/5 * * * *',
+--   $$
+--     update public.sessions
+--     set playback_state = 'ended'
+--     where playback_state <> 'ended'
+--       and expires_at < now();
+--   $$
+-- );
+
+-- Make the tracks storage bucket private (run once in Supabase SQL editor):
+-- update storage.buckets set public = false where name = 'tracks';

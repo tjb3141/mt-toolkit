@@ -20,6 +20,24 @@
 	let newGenreName = $state('');
 	let creatingGenre = $state(false);
 
+	type SessionRow = { id: string; code: string; mode: string; playback_state: string; created_at: string; expires_at: string; participant_count: number };
+	let sessions = $state<SessionRow[]>([]);
+	let loadingSessions = $state(false);
+
+	async function loadSessions() {
+		loadingSessions = true;
+		const res = await fetch('/admin/sessions', { headers: ah() });
+		loadingSessions = false;
+		if (res.ok) sessions = await res.json();
+	}
+
+	async function endSession(id: string, code: string) {
+		if (!confirm(`End session ${code}? All connected clients will see "Session ended".`)) return;
+		const res = await fetch(`/admin/sessions/${id}`, { method: 'DELETE', headers: ah() });
+		if (!res.ok) { alert(await res.text()); return; }
+		sessions = sessions.filter((s) => s.id !== id);
+	}
+
 	let uploadGenreId = $state<string | null>(null);
 	let fileInputs = $state<Record<string, HTMLInputElement | null>>({});
 	let uploadResults = $state<Record<string, { name: string; status: string; message: string }[]>>({});
@@ -339,5 +357,41 @@
 				{/each}
 			</div>
 		{/if}
+
+		<!-- Active sessions -->
+		<div class="mt-12">
+			<div class="mb-4 flex items-center gap-4">
+				<h2 class="text-lg font-bold">Active Sessions</h2>
+				<button
+					onclick={loadSessions}
+					disabled={loadingSessions}
+					class="rounded bg-zinc-700 px-3 py-1 text-xs font-semibold text-white hover:bg-zinc-600 disabled:opacity-40"
+				>
+					{loadingSessions ? 'Loading…' : 'Refresh'}
+				</button>
+			</div>
+			{#if sessions.length === 0}
+				<p class="text-sm text-zinc-500">No active sessions. Hit Refresh to load.</p>
+			{:else}
+				<div class="flex flex-col divide-y divide-zinc-700 rounded-lg border border-zinc-700">
+					{#each sessions as s (s.id)}
+						<div class="flex items-center gap-3 px-4 py-3">
+							<span class="font-mono text-lg font-bold tracking-widest">{s.code}</span>
+							<span class="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">{s.mode}</span>
+							<span class="text-xs text-zinc-400">{s.participant_count} participants</span>
+							<span class="flex-1 text-xs text-zinc-500">
+								expires {new Date(s.expires_at).toLocaleTimeString()}
+							</span>
+							<button
+								onclick={() => endSession(s.id, s.code)}
+								class="text-xs text-red-400 hover:text-red-300"
+							>
+								End
+							</button>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</div>
 	{/if}
 </main>
