@@ -58,3 +58,6 @@ create policy "participants insertable by all" on participants for insert with c
 create policy "participants updatable by all" on participants for update using (true);
 
 alter publication supabase_realtime add table participants;
+
+-- Migration: add current_track column
+-- alter table participants add column if not exists current_track text;

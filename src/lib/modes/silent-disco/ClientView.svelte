@@ -80,6 +80,11 @@
 		currentIndex = (currentIndex + 1) % tracks.length;
 	}
 
+	function prevTrack() {
+		currentIndex = (currentIndex - 1 + tracks.length) % tracks.length;
+	}
+
+	// Load audio when track changes
 	$effect(() => {
 		const _tracks = tracks;
 		const _index = currentIndex;
@@ -87,6 +92,15 @@
 		audioEl.src = getUrl(_tracks[_index].storage_path);
 		const state = untrack(() => playbackState);
 		if (state === 'playing') audioEl.play().catch(() => {});
+	});
+
+	// Report current track to host
+	$effect(() => {
+		const _pid = participantId;
+		const _tracks = tracks;
+		const _index = currentIndex;
+		if (!_pid || _tracks.length === 0) return;
+		supabase.from('participants').update({ current_track: _tracks[_index].title }).eq('id', _pid);
 	});
 </script>
 
@@ -145,7 +159,7 @@
 			<p class="mt-1 text-sm text-zinc-500">{selectedGenre.name}</p>
 		</div>
 
-		<div class="flex flex-col gap-2">
+		<div class="flex flex-col gap-3">
 			{#if playbackState === 'playing'}
 				<p class="text-xs font-semibold uppercase tracking-widest text-emerald-400">Now playing</p>
 			{:else if playbackState === 'ended'}
@@ -159,11 +173,28 @@
 
 		<audio bind:this={audioEl} onended={nextTrack}></audio>
 
-		<button
-			onclick={() => { selectedGenre = null; tracks = []; }}
-			class="text-left text-sm text-zinc-600 underline underline-offset-4 hover:text-zinc-400"
-		>
-			Change genre
-		</button>
+		<div class="flex flex-col gap-6">
+			<div class="flex gap-4">
+				<button
+					onclick={prevTrack}
+					class="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-zinc-900 py-5 text-lg font-bold transition-all hover:bg-zinc-800 active:scale-95"
+				>
+					⏮ Prev
+				</button>
+				<button
+					onclick={nextTrack}
+					class="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-zinc-900 py-5 text-lg font-bold transition-all hover:bg-zinc-800 active:scale-95"
+				>
+					Skip ⏭
+				</button>
+			</div>
+
+			<button
+				onclick={() => { selectedGenre = null; tracks = []; }}
+				class="text-left text-sm text-zinc-600 underline underline-offset-4 hover:text-zinc-400"
+			>
+				Change genre
+			</button>
+		</div>
 	</div>
 {/if}

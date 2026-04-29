@@ -9,7 +9,7 @@
 	let playbackState = $state(untrack(() => session.playback_state));
 	let qrDataUrl = $state('');
 
-	type Participant = { id: string; name: string; genre_id: string | null; joined_at: string };
+	type Participant = { id: string; name: string; genre_id: string | null; current_track: string | null; joined_at: string };
 	let participants = $state<Participant[]>([]);
 	let genreMap = $state<Record<string, string>>({});
 	let channel: RealtimeChannel | null = null;
@@ -27,7 +27,7 @@
 
 		const { data } = await supabase
 			.from('participants')
-			.select('id, name, genre_id, joined_at')
+			.select('id, name, genre_id, current_track, joined_at')
 			.eq('session_id', session.id)
 			.order('joined_at');
 		participants = data ?? [];
@@ -98,11 +98,16 @@
 		{:else}
 			<ul class="flex flex-col gap-2">
 				{#each participants as p (p.id)}
-					<li class="flex items-center justify-between rounded-2xl bg-zinc-900 px-5 py-4">
-						<span class="font-semibold">{p.name}</span>
-						<span class="text-sm text-zinc-400">
-							{p.genre_id ? genreMap[p.genre_id] ?? '…' : 'picking…'}
-						</span>
+					<li class="flex flex-col gap-1 rounded-2xl bg-zinc-900 px-5 py-4">
+						<div class="flex items-center justify-between">
+							<span class="font-semibold">{p.name}</span>
+							<span class="text-xs text-zinc-500">
+								{p.genre_id ? genreMap[p.genre_id] ?? '…' : 'picking…'}
+							</span>
+						</div>
+						{#if p.current_track}
+							<span class="truncate text-sm text-zinc-400">{p.current_track}</span>
+						{/if}
 					</li>
 				{/each}
 			</ul>
