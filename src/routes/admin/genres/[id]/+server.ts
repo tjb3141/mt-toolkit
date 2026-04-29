@@ -31,10 +31,12 @@ export const DELETE: RequestHandler = async ({ request, params }) => {
 
 	const { data: tracks } = await admin
 		.from('tracks')
-		.select('storage_path')
+		.select('id, storage_path')
 		.eq('genre_id', params.id);
 
 	if (tracks && tracks.length > 0) {
+		const trackIds = tracks.map((t) => t.id);
+		await admin.from('partners_pairs').update({ track_id: null }).in('track_id', trackIds);
 		await admin.storage.from('tracks').remove(tracks.map((t) => t.storage_path));
 	}
 
