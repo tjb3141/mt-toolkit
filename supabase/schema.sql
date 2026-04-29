@@ -5,7 +5,7 @@ create table sessions (
   mode text not null default 'silent_disco',
   playback_state text not null default 'paused' check (playback_state in ('playing', 'paused', 'ended')),
   created_at timestamptz not null default now(),
-  expires_at timestamptz not null default now() + interval '8 hours'
+  expires_at timestamptz not null default now() + interval '2 hours'
 );
 
 -- Genres: curated by Riley, static config

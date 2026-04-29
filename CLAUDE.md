@@ -16,8 +16,8 @@ A Kahoot-style session-based "silent disco" web app for a therapy/wellness conte
 | File storage | Supabase Storage (`tracks` bucket) |
 | Music pipeline | Python 3 script using yt-dlp + ffmpeg (run locally) |
 
-Live URL: `https://silent-disco-mt.vercel.app`
-GitHub: `https://github.com/tjb3141/silent_disco_mt`
+Live URL: `https://mt-toolkit.vercel.app`
+GitHub: `https://github.com/tjb3141/mt-toolkit`
 Supabase project: `https://ouxfgdbpdkykovbsifbr.supabase.co`
 
 ## Project structure

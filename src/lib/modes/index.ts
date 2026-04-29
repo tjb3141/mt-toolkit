@@ -1,6 +1,8 @@
 import type { Component } from 'svelte';
 import SilentDiscoClientView from './silent-disco/ClientView.svelte';
 import SilentDiscoHostControls from './silent-disco/HostControls.svelte';
+import PartnersClientView from './partners/ClientView.svelte';
+import PartnersHostControls from './partners/HostControls.svelte';
 
 export type Session = {
 	id: string;
@@ -24,5 +26,10 @@ export const modes: Record<string, ModeEntry> = {
 		label: 'Silent Disco',
 		ClientView: SilentDiscoClientView,
 		HostControls: SilentDiscoHostControls
+	},
+	partners: {
+		label: 'Partners',
+		ClientView: PartnersClientView,
+		HostControls: PartnersHostControls
 	}
 };
