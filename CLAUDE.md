@@ -1,5 +1,7 @@
 # Silent Disco — CLAUDE.md
 
+useless text
+
 ## What this project is
 
 A Kahoot-style session-based "silent disco" web app for a therapy/wellness context. Riley (the host) creates a session; patients/clients join on their own mobile browsers via a 6-character code or QR code. Each client picks a music genre, listens through their own headphones, and controls their own volume. Riley controls master play/pause for all clients simultaneously via Supabase Realtime.
