@@ -2,6 +2,7 @@
 create table sessions (
   id uuid primary key default gen_random_uuid(),
   code text not null unique,
+  mode text not null default 'silent_disco',
   playback_state text not null default 'paused' check (playback_state in ('playing', 'paused', 'ended')),
   created_at timestamptz not null default now(),
   expires_at timestamptz not null default now() + interval '8 hours'
@@ -38,3 +39,6 @@ create policy "tracks readable by all" on tracks for select using (true);
 
 -- Enable realtime for sessions table
 alter publication supabase_realtime add table sessions;
+
+-- Make tracks bucket publicly readable (required for HTML5 audio src)
+update storage.buckets set public = true where id = 'tracks';
