@@ -451,9 +451,28 @@
 		</div>
 
 		{#if allFound}
-			<div class="rounded-2xl border border-emerald-700 bg-emerald-900/30 px-6 py-5">
+			<div class="rounded-2xl border border-emerald-700 bg-emerald-900/30 px-6 py-5 flex flex-col gap-4">
 				<p class="text-center text-2xl font-black text-emerald-400">All pairs found!</p>
-				<div class="mt-4 flex gap-3">
+				<div>
+					<p class="mb-2 text-xs font-semibold uppercase tracking-widest text-zinc-400">Genre for next round</p>
+					<div class="flex flex-wrap gap-2">
+						<button
+							onclick={() => (selectedGenreId = null)}
+							class="rounded-xl px-3 py-2 text-sm font-semibold transition-all {selectedGenreId === null ? 'bg-violet-600 text-white' : 'bg-zinc-800 text-white hover:bg-zinc-700'}"
+						>
+							All genres
+						</button>
+						{#each genres as g (g.id)}
+							<button
+								onclick={() => (selectedGenreId = g.id)}
+								class="rounded-xl px-3 py-2 text-sm font-semibold transition-all {selectedGenreId === g.id ? 'bg-violet-600 text-white' : 'bg-zinc-800 text-white hover:bg-zinc-700'}"
+							>
+								{g.name}
+							</button>
+						{/each}
+					</div>
+				</div>
+				<div class="flex gap-3">
 					<button
 						onclick={restartSamePairs}
 						disabled={startingGame}
