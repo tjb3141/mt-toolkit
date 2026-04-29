@@ -9,7 +9,9 @@
 
 	function generateCode(): string {
 		const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-		return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+		return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join(
+			''
+		);
 	}
 
 	async function createSession() {
@@ -39,24 +41,31 @@
 	}
 </script>
 
-<main class="flex min-h-screen flex-col items-center justify-center gap-10 p-8">
-	<div class="text-center">
-		<p class="mb-2 text-sm font-semibold uppercase tracking-[0.3em] text-violet-400">MT Toolkit</p>
+<main class="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-8 px-6 py-10">
+	<a href="/" class="self-start text-sm font-semibold text-zinc-500 hover:text-zinc-300">
+		Back to main menu
+	</a>
+
+	<div>
+		<p class="mb-2 text-sm font-semibold tracking-[0.3em] text-violet-400 uppercase">MT Toolkit</p>
 		<h1 class="text-5xl font-black tracking-tight">Start a session</h1>
 	</div>
 
-	<div class="flex w-full max-w-xs flex-col gap-3">
-		<p class="text-xs font-semibold uppercase tracking-widest text-zinc-500">Mode</p>
+	<div class="flex w-full flex-col gap-3">
+		<p class="text-xs font-semibold tracking-widest text-zinc-500 uppercase">Mode</p>
 		{#each Object.entries(modes) as [key, m]}
 			<label
-				class="flex cursor-pointer items-center gap-4 rounded-2xl border-2 px-5 py-4 transition-colors {selectedMode === key ? 'border-violet-500 bg-violet-950' : 'border-zinc-800 bg-zinc-900 hover:border-zinc-600'}"
+				class="flex cursor-pointer items-center gap-4 rounded-lg border-2 px-5 py-4 transition-colors {selectedMode ===
+				key
+					? 'border-violet-500 bg-violet-950'
+					: 'border-zinc-800 bg-zinc-900 hover:border-zinc-600'}"
 			>
 				<input type="radio" bind:group={selectedMode} value={key} class="hidden" />
 				<div class="flex flex-col">
 					<span class="font-bold">{m.label}</span>
 				</div>
 				{#if selectedMode === key}
-					<span class="ml-auto text-violet-400">✓</span>
+					<span class="ml-auto text-sm font-semibold text-violet-400">Selected</span>
 				{/if}
 			</label>
 		{/each}
@@ -69,8 +78,8 @@
 	<button
 		onclick={createSession}
 		disabled={creating}
-		class="w-full max-w-xs rounded-2xl bg-violet-600 py-4 text-lg font-bold text-white transition-colors hover:bg-violet-500 disabled:opacity-30"
+		class="w-full rounded-lg bg-violet-600 py-4 text-lg font-bold text-white transition-colors hover:bg-violet-500 disabled:opacity-30"
 	>
-		{creating ? 'Creating…' : 'Create session'}
+		{creating ? 'Creating...' : 'Create session'}
 	</button>
 </main>

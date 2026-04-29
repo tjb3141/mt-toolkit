@@ -12,36 +12,52 @@
 	}
 </script>
 
-<main class="flex min-h-screen flex-col items-center justify-center gap-10 p-8">
-	<div class="text-center">
-		<p class="mb-2 text-sm font-semibold uppercase tracking-[0.3em] text-violet-400">MT Toolkit</p>
-		<h1 class="text-5xl font-black tracking-tight">Join a session</h1>
+<main class="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-8 px-6 py-10">
+	<div>
+		<p class="mb-2 text-sm font-semibold tracking-[0.3em] text-violet-400 uppercase">MT Toolkit</p>
+		<h1 class="text-5xl font-black tracking-tight">Main menu</h1>
+		<p class="mt-3 text-sm leading-6 text-zinc-400">
+			Join from the room code, or start a host session for the group.
+		</p>
 	</div>
 
-	<form onsubmit={join} class="flex flex-col items-center gap-4">
-		{#if invalid}
-			<p class="text-sm text-red-400">Session not found or expired.</p>
-		{/if}
-		<input
-			bind:value={code}
-			maxlength="6"
-			placeholder="••••••"
-			autocomplete="off"
-			autocorrect="off"
-			spellcheck="false"
-			oninput={(e) => { code = (e.currentTarget as HTMLInputElement).value.toUpperCase(); }}
-			class="w-64 rounded-2xl border-2 border-zinc-700 bg-zinc-900 px-6 py-5 text-center text-4xl font-black uppercase tracking-[0.4em] text-white placeholder:text-zinc-600 focus:border-violet-500 focus:outline-none"
-		/>
-		<button
-			type="submit"
-			disabled={code.trim().length !== 6}
-			class="w-64 rounded-2xl bg-violet-600 py-4 text-lg font-bold text-white transition-colors hover:bg-violet-500 disabled:opacity-30"
-		>
-			Join
-		</button>
-	</form>
+	<section class="rounded-lg border border-zinc-800 bg-zinc-950 p-5">
+		<div class="mb-4">
+			<h2 class="text-xl font-black">Join a session</h2>
+			<p class="mt-1 text-sm text-zinc-500">Enter the 6-character code from the host screen.</p>
+		</div>
 
-	<a href="/host" class="text-sm text-zinc-500 underline underline-offset-4 hover:text-zinc-300">
-		Host a session
+		<form onsubmit={join} class="flex flex-col gap-3">
+			{#if invalid}
+				<p class="text-sm text-red-400">Session not found or expired.</p>
+			{/if}
+			<input
+				bind:value={code}
+				maxlength="6"
+				placeholder="ABC123"
+				autocomplete="off"
+				autocorrect="off"
+				spellcheck="false"
+				oninput={(e) => {
+					code = (e.currentTarget as HTMLInputElement).value.toUpperCase();
+				}}
+				class="w-full rounded-lg border-2 border-zinc-700 bg-zinc-900 px-5 py-4 text-center text-3xl font-black tracking-[0.35em] text-white uppercase placeholder:text-zinc-700 focus:border-violet-500 focus:outline-none"
+			/>
+			<button
+				type="submit"
+				disabled={code.trim().length !== 6}
+				class="w-full rounded-lg bg-violet-600 py-4 text-lg font-bold text-white transition-colors hover:bg-violet-500 disabled:opacity-30"
+			>
+				Join
+			</button>
+		</form>
+	</section>
+
+	<a
+		href="/host"
+		class="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900 px-5 py-4 font-bold transition-colors hover:border-violet-500 hover:bg-zinc-800"
+	>
+		<span>Host a session</span>
+		<span class="text-violet-400">Start</span>
 	</a>
 </main>

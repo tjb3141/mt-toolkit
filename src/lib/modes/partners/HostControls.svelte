@@ -58,7 +58,11 @@
 		});
 
 		const [{ data: pData }, { data: gData }] = await Promise.all([
-			supabase.from('participants').select('id, name, joined_at').eq('session_id', session.id).order('joined_at'),
+			supabase
+				.from('participants')
+				.select('id, name, joined_at')
+				.eq('session_id', session.id)
+				.order('joined_at'),
 			supabase.from('genres').select('id, name').order('display_order')
 		]);
 		participants = pData ?? [];
@@ -72,7 +76,12 @@
 			.channel(`host-partners:${session.id}`)
 			.on(
 				'postgres_changes',
-				{ event: 'INSERT', schema: 'public', table: 'participants', filter: `session_id=eq.${session.id}` },
+				{
+					event: 'INSERT',
+					schema: 'public',
+					table: 'participants',
+					filter: `session_id=eq.${session.id}`
+				},
 				(payload) => {
 					participants = [...participants, payload.new as Participant];
 				}
@@ -121,7 +130,7 @@
 			...p,
 			p1Name: pMap[p.participant_1_id] ?? '?',
 			p2Name: pMap[p.participant_2_id] ?? '?',
-			trackTitle: p.track_id ? (tMap[p.track_id] ?? '?') : '—'
+			trackTitle: p.track_id ? (tMap[p.track_id] ?? '?') : '-'
 		}));
 
 		if (pairsChannel) await supabase.removeChannel(pairsChannel);
@@ -201,7 +210,7 @@
 			found: false
 		}));
 
-		// Use .select() to get inserted IDs back — build pairs directly, never re-query old rows
+		// Use .select() to get inserted IDs back; build pairs directly, never re-query old rows.
 		const { data: inserted } = await supabase
 			.from('partners_pairs')
 			.insert(pairRows)
@@ -214,7 +223,7 @@
 			...row,
 			p1Name: p1Map[row.participant_1_id]?.p1.name ?? '?',
 			p2Name: p1Map[row.participant_1_id]?.p2.name ?? '?',
-			trackTitle: row.track_id ? (trackMap[row.track_id] ?? '?') : '—'
+			trackTitle: row.track_id ? (trackMap[row.track_id] ?? '?') : '-'
 		}));
 
 		if (pairsChannel) await supabase.removeChannel(pairsChannel);
@@ -238,7 +247,7 @@
 		const shuffledTracks = shuffle(trackData ?? []);
 		const trackMap = Object.fromEntries((trackData ?? []).map((t) => [t.id, t.title]));
 
-		// Assign new tracks to each pair and reset found — capture assignments before the async spread
+		// Assign new tracks to each pair and reset found before the async spread.
 		const assignments = pairs.map((pair, i) => ({
 			id: pair.id,
 			trackId: shuffledTracks[i % shuffledTracks.length]?.id ?? null
@@ -246,16 +255,20 @@
 
 		await Promise.all(
 			assignments.map(({ id, trackId }) =>
-				supabase.from('partners_pairs').update({ found: false, track_id: trackId }).eq('id', id).then()
+				supabase
+					.from('partners_pairs')
+					.update({ found: false, track_id: trackId })
+					.eq('id', id)
+					.then()
 			)
 		);
 
-		// Update local state immediately — no DB re-query, no stale rows
+		// Update local state immediately with no DB re-query or stale rows.
 		pairs = pairs.map((pair, i) => ({
 			...pair,
 			found: false,
 			track_id: assignments[i].trackId,
-			trackTitle: assignments[i].trackId ? (trackMap[assignments[i].trackId!] ?? '?') : '—'
+			trackTitle: assignments[i].trackId ? (trackMap[assignments[i].trackId!] ?? '?') : '-'
 		}));
 
 		if (pairsChannel) await supabase.removeChannel(pairsChannel);
@@ -282,26 +295,31 @@
 </script>
 
 {#if localPhase === 'lobby'}
-	<div class="flex min-h-screen flex-col items-center gap-8 p-8">
-		<p class="text-xs font-semibold uppercase tracking-[0.3em] text-violet-400">
-			MT Toolkit · Partners · Host
-		</p>
+	<div class="mx-auto flex min-h-screen w-full max-w-md flex-col items-center gap-8 px-6 py-8">
+		<div class="flex w-full items-center justify-between gap-4">
+			<p class="text-xs font-semibold tracking-[0.3em] text-violet-400 uppercase">
+				MT Toolkit / Partners / Host
+			</p>
+			<a href="/" class="shrink-0 text-sm font-semibold text-zinc-500 hover:text-zinc-300">
+				Main menu
+			</a>
+		</div>
 
 		<div class="text-center">
-			<p class="mb-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">Session code</p>
+			<p class="mb-2 text-xs font-semibold tracking-widest text-zinc-500 uppercase">Session code</p>
 			<p class="text-7xl font-black tracking-widest">{session.code}</p>
 		</div>
 
 		{#if qrDataUrl}
-			<div class="rounded-2xl bg-zinc-900 p-3">
+			<div class="rounded-lg bg-zinc-900 p-3">
 				<img src={qrDataUrl} alt="QR code to join session" class="h-44 w-44" />
 			</div>
 		{/if}
 
-		<p class="max-w-xs break-all text-center text-xs text-zinc-500">{joinUrl}</p>
+		<p class="max-w-xs text-center text-xs break-all text-zinc-500">{joinUrl}</p>
 
 		<div class="w-full max-w-sm">
-			<p class="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-500">
+			<p class="mb-3 text-xs font-semibold tracking-widest text-zinc-500 uppercase">
 				Participants ({participants.length})
 			</p>
 			{#if participants.length === 0}
@@ -309,7 +327,7 @@
 			{:else}
 				<ul class="flex flex-col gap-2">
 					{#each participants as p (p.id)}
-						<li class="rounded-2xl bg-zinc-900 px-5 py-4 font-semibold">{p.name}</li>
+						<li class="rounded-lg bg-zinc-900 px-5 py-4 font-semibold">{p.name}</li>
 					{/each}
 				</ul>
 			{/if}
@@ -319,39 +337,43 @@
 			<div class="flex w-full max-w-sm flex-col gap-3">
 				<button
 					onclick={() => startAssigning('auto')}
-					class="rounded-2xl bg-violet-600 py-4 text-lg font-bold text-white transition-colors hover:bg-violet-500"
+					class="rounded-lg bg-violet-600 py-4 text-lg font-bold text-white transition-colors hover:bg-violet-500"
 				>
 					Auto Assign Partners
 				</button>
 				<button
 					onclick={() => startAssigning('manual')}
-					class="rounded-2xl bg-zinc-800 py-4 text-lg font-bold text-white transition-colors hover:bg-zinc-700"
+					class="rounded-lg bg-zinc-800 py-4 text-lg font-bold text-white transition-colors hover:bg-zinc-700"
 				>
 					Assign Manually
 				</button>
 			</div>
 		{:else}
-			<p class="text-sm text-zinc-600">Waiting for at least 2 participants…</p>
+			<p class="text-sm text-zinc-600">Waiting for at least 2 participants...</p>
 		{/if}
 	</div>
-
 {:else if localPhase === 'assigning'}
-	<div class="flex min-h-screen flex-col gap-6 p-8">
-		<div>
-			<p class="text-xs font-semibold uppercase tracking-[0.3em] text-violet-400">
-				MT Toolkit · Partners · Host
-			</p>
-			<h2 class="mt-2 text-3xl font-black">Assign Partners</h2>
-			<p class="mt-1 text-sm text-zinc-500">
-				{assignmentMode === 'auto'
-					? 'Auto-assigned — remove pairs to adjust.'
-					: 'Tap two participants to pair them.'}
-			</p>
+	<div class="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-6 px-6 py-8">
+		<div class="flex items-start justify-between gap-4">
+			<div>
+				<p class="text-xs font-semibold tracking-[0.3em] text-violet-400 uppercase">
+					MT Toolkit / Partners / Host
+				</p>
+				<h2 class="mt-2 text-3xl font-black">Assign Partners</h2>
+				<p class="mt-1 text-sm text-zinc-500">
+					{assignmentMode === 'auto'
+						? 'Auto-assigned. Remove pairs to adjust.'
+						: 'Tap two participants to pair them.'}
+				</p>
+			</div>
+			<a href="/" class="shrink-0 text-sm font-semibold text-zinc-500 hover:text-zinc-300">
+				Main menu
+			</a>
 		</div>
 
 		{#if assignmentMode === 'manual'}
 			<div>
-				<p class="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-500">
+				<p class="mb-3 text-xs font-semibold tracking-widest text-zinc-500 uppercase">
 					Unpaired ({unpaired.length})
 				</p>
 				<div class="flex flex-wrap gap-2">
@@ -359,9 +381,7 @@
 						<button
 							onclick={() => manualSelect(p)}
 							class="rounded-xl px-4 py-3 font-semibold transition-all active:scale-95
-								{selecting?.id === p.id
-								? 'bg-violet-600 text-white'
-								: 'bg-zinc-800 text-white hover:bg-zinc-700'}"
+								{selecting?.id === p.id ? 'bg-violet-600 text-white' : 'bg-zinc-800 text-white hover:bg-zinc-700'}"
 						>
 							{p.name}
 						</button>
@@ -376,7 +396,7 @@
 		{/if}
 
 		<div>
-			<p class="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-500">
+			<p class="mb-3 text-xs font-semibold tracking-widest text-zinc-500 uppercase">
 				Pairs ({pendingPairs.length})
 			</p>
 			{#if pendingPairs.length === 0}
@@ -384,7 +404,7 @@
 			{:else}
 				<ul class="flex flex-col gap-2">
 					{#each pendingPairs as pair, i}
-						<li class="flex items-center justify-between rounded-2xl bg-zinc-900 px-5 py-4">
+						<li class="flex items-center justify-between rounded-lg bg-zinc-900 px-5 py-4">
 							<span class="font-semibold">{pair.p1.name} + {pair.p2.name}</span>
 							<button
 								onclick={() => removePair(i)}
@@ -400,23 +420,28 @@
 
 		{#if unpaired.length > 0 && assignmentMode === 'manual'}
 			<p class="text-sm text-zinc-500">
-				{unpaired.length} person{unpaired.length !== 1 ? 's' : ''} unpaired — they won't play.
+				{unpaired.length} person{unpaired.length !== 1 ? 's' : ''} unpaired. They won't play.
 			</p>
 		{/if}
 
 		<div>
-			<p class="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-500">Genre</p>
+			<p class="mb-3 text-xs font-semibold tracking-widest text-zinc-500 uppercase">Genre</p>
 			<div class="flex flex-wrap gap-2">
 				<button
 					onclick={() => (selectedGenreId = null)}
-					class="rounded-xl px-4 py-2 text-sm font-semibold transition-all {selectedGenreId === null ? 'bg-violet-600 text-white' : 'bg-zinc-800 text-white hover:bg-zinc-700'}"
+					class="rounded-xl px-4 py-2 text-sm font-semibold transition-all {selectedGenreId === null
+						? 'bg-violet-600 text-white'
+						: 'bg-zinc-800 text-white hover:bg-zinc-700'}"
 				>
 					All genres
 				</button>
 				{#each genres as g (g.id)}
 					<button
 						onclick={() => (selectedGenreId = g.id)}
-						class="rounded-xl px-4 py-2 text-sm font-semibold transition-all {selectedGenreId === g.id ? 'bg-violet-600 text-white' : 'bg-zinc-800 text-white hover:bg-zinc-700'}"
+						class="rounded-xl px-4 py-2 text-sm font-semibold transition-all {selectedGenreId ===
+						g.id
+							? 'bg-violet-600 text-white'
+							: 'bg-zinc-800 text-white hover:bg-zinc-700'}"
 					>
 						{g.name}
 					</button>
@@ -427,45 +452,61 @@
 		<div class="mt-auto flex gap-3">
 			<button
 				onclick={() => (localPhase = 'lobby')}
-				class="flex-1 rounded-2xl bg-zinc-800 py-4 font-bold transition-colors hover:bg-zinc-700"
+				class="flex-1 rounded-lg bg-zinc-800 py-4 font-bold transition-colors hover:bg-zinc-700"
 			>
 				Back
 			</button>
 			<button
 				onclick={startGame}
 				disabled={pendingPairs.length === 0 || startingGame}
-				class="flex-1 rounded-2xl bg-emerald-600 py-4 text-lg font-bold text-white transition-colors hover:bg-emerald-500 disabled:opacity-30"
+				class="flex-1 rounded-lg bg-emerald-600 py-4 text-lg font-bold text-white transition-colors hover:bg-emerald-500 disabled:opacity-30"
 			>
-				{startingGame ? 'Starting…' : 'Start Game →'}
+				{startingGame ? 'Starting...' : 'Start Game'}
 			</button>
 		</div>
 	</div>
-
 {:else if localPhase === 'playing'}
-	<div class="flex min-h-screen flex-col gap-6 p-8">
+	<div class="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-6 px-6 py-8">
 		<div class="flex items-center justify-between">
-			<p class="text-xs font-semibold uppercase tracking-[0.3em] text-violet-400">
-				MT Toolkit · Partners · Host
+			<p class="text-xs font-semibold tracking-[0.3em] text-violet-400 uppercase">
+				MT Toolkit / Partners / Host
 			</p>
-			<span class="text-xs text-zinc-500">{pairs.filter((p) => p.found).length}/{pairs.length} found</span>
+			<div class="flex items-center gap-4">
+				<span class="text-xs text-zinc-500"
+					>{pairs.filter((p) => p.found).length}/{pairs.length} found</span
+				>
+				<a href="/" class="shrink-0 text-sm font-semibold text-zinc-500 hover:text-zinc-300">
+					Main menu
+				</a>
+			</div>
 		</div>
 
 		{#if allFound}
-			<div class="rounded-2xl border border-emerald-700 bg-emerald-900/30 px-6 py-5 flex flex-col gap-4">
+			<div
+				class="flex flex-col gap-4 rounded-lg border border-emerald-700 bg-emerald-900/30 px-6 py-5"
+			>
 				<p class="text-center text-2xl font-black text-emerald-400">All pairs found!</p>
 				<div>
-					<p class="mb-2 text-xs font-semibold uppercase tracking-widest text-zinc-400">Genre for next round</p>
+					<p class="mb-2 text-xs font-semibold tracking-widest text-zinc-400 uppercase">
+						Genre for next round
+					</p>
 					<div class="flex flex-wrap gap-2">
 						<button
 							onclick={() => (selectedGenreId = null)}
-							class="rounded-xl px-3 py-2 text-sm font-semibold transition-all {selectedGenreId === null ? 'bg-violet-600 text-white' : 'bg-zinc-800 text-white hover:bg-zinc-700'}"
+							class="rounded-xl px-3 py-2 text-sm font-semibold transition-all {selectedGenreId ===
+							null
+								? 'bg-violet-600 text-white'
+								: 'bg-zinc-800 text-white hover:bg-zinc-700'}"
 						>
 							All genres
 						</button>
 						{#each genres as g (g.id)}
 							<button
 								onclick={() => (selectedGenreId = g.id)}
-								class="rounded-xl px-3 py-2 text-sm font-semibold transition-all {selectedGenreId === g.id ? 'bg-violet-600 text-white' : 'bg-zinc-800 text-white hover:bg-zinc-700'}"
+								class="rounded-xl px-3 py-2 text-sm font-semibold transition-all {selectedGenreId ===
+								g.id
+									? 'bg-violet-600 text-white'
+									: 'bg-zinc-800 text-white hover:bg-zinc-700'}"
 							>
 								{g.name}
 							</button>
@@ -478,7 +519,7 @@
 						disabled={startingGame}
 						class="flex-1 rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white transition-colors hover:bg-emerald-500 disabled:opacity-30"
 					>
-						{startingGame ? 'Starting…' : 'Same pairs, new songs'}
+						{startingGame ? 'Starting...' : 'Same pairs, new songs'}
 					</button>
 					<button
 						onclick={reassignPairs}
@@ -493,7 +534,9 @@
 		<ul class="flex flex-col gap-3">
 			{#each pairs as pair (pair.id)}
 				<li
-					class="rounded-2xl bg-zinc-900 px-5 py-4 transition-opacity {pair.found ? 'opacity-40' : ''}"
+					class="rounded-lg bg-zinc-900 px-5 py-4 transition-opacity {pair.found
+						? 'opacity-40'
+						: ''}"
 				>
 					<div class="flex items-center justify-between gap-4">
 						<div class="min-w-0">
@@ -508,7 +551,7 @@
 								Found!
 							</button>
 						{:else}
-							<span class="shrink-0 text-sm font-bold text-emerald-400">✓ Found</span>
+							<span class="shrink-0 text-sm font-bold text-emerald-400">Found</span>
 						{/if}
 					</div>
 				</li>
@@ -522,13 +565,13 @@
 			End session
 		</button>
 	</div>
-
 {:else}
 	<div class="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
-		<p class="text-xs font-semibold uppercase tracking-[0.3em] text-violet-400">
-			MT Toolkit · Partners · Host
+		<p class="text-xs font-semibold tracking-[0.3em] text-violet-400 uppercase">
+			MT Toolkit / Partners / Host
 		</p>
 		<p class="text-2xl font-black">Session complete</p>
 		<p class="text-zinc-500">All pairs found. Great session!</p>
+		<a href="/" class="text-sm font-semibold text-zinc-500 hover:text-zinc-300"> Main menu </a>
 	</div>
 {/if}
