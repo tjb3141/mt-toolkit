@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 
 	let code = $state('');
-	let invalid = $derived($page.url.searchParams.get('error') === 'invalid');
+	let invalid = $derived(page.url.searchParams.get('error') === 'invalid');
 
 	function join(e: SubmitEvent) {
 		e.preventDefault();
@@ -13,7 +13,7 @@
 </script>
 
 <main class="flex min-h-screen flex-col items-center justify-center gap-8 p-8">
-	<h1 class="text-4xl font-bold">Silent Disco</h1>
+	<h1 class="text-4xl font-bold">MT Toolkit</h1>
 
 	<form onsubmit={join} class="flex flex-col items-center gap-4">
 		{#if invalid}
