@@ -2,7 +2,7 @@
 	import { supabase } from '$lib/supabase';
 	import { onMount } from 'svelte';
 
-	let status = 'checking...';
+	let status = $state('checking...');
 
 	onMount(async () => {
 		const { data, error } = await supabase.from('genres').select('count');
