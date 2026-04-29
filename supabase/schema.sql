@@ -15,7 +15,7 @@ create table genres (
   display_order integer not null default 0
 );
 
--- Tracks: populated by the Python ingestion script
+-- Tracks: populated by local utility scripts and the admin UI
 create table tracks (
   id uuid primary key default gen_random_uuid(),
   genre_id uuid not null references genres(id) on delete cascade,
