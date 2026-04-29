@@ -10,7 +10,7 @@
 	let loading = $state(false);
 	let genres = $state<Genre[]>([]);
 
-	let expandedId = $state<string | null>(null);
+	let expandedIds = $state<Set<string>>(new Set());
 	let loadingTracksFor = $state<string | null>(null);
 
 	let editingGenreId = $state<string | null>(null);
@@ -61,31 +61,31 @@
 		e.preventDefault();
 		loading = true;
 		const { data, error } = await supabase
-			.from('genres')
+			.from('playlists')
 			.select('id, name, display_order')
 			.order('display_order');
 		loading = false;
 		if (error) {
-			alert('Failed to load genres — check your secret is set in Vercel env vars.');
+			alert('Failed to load playlists — check your secret is set in Vercel env vars.');
 			return;
 		}
 		genres = data ?? [];
 		unlocked = true;
 	}
 
-	async function expandGenre(id: string) {
-		if (expandedId === id) {
-			expandedId = null;
+	async function togglePlaylist(id: string) {
+		if (expandedIds.has(id)) {
+			expandedIds = new Set([...expandedIds].filter((x) => x !== id));
 			return;
 		}
-		expandedId = id;
+		expandedIds = new Set([...expandedIds, id]);
 		const genre = genres.find((g) => g.id === id);
 		if (genre?.tracks) return;
 		loadingTracksFor = id;
 		const { data } = await supabase
 			.from('tracks')
 			.select('id, title, storage_path, duration_seconds')
-			.eq('genre_id', id)
+			.eq('playlist_id', id)
 			.order('title');
 		loadingTracksFor = null;
 		genres = genres.map((g) => (g.id === id ? { ...g, tracks: data ?? [] } : g));
@@ -99,7 +99,7 @@
 		e.preventDefault();
 		if (!newGenreName.trim()) return;
 		creatingGenre = true;
-		const res = await fetch('/admin/genres', {
+		const res = await fetch('/admin/playlists', {
 			method: 'POST',
 			headers: ah(),
 			body: JSON.stringify({ name: newGenreName.trim() })
@@ -120,7 +120,7 @@
 	}
 
 	async function saveGenreName(id: string) {
-		const res = await fetch(`/admin/genres/${id}`, {
+		const res = await fetch(`/admin/playlists/${id}`, {
 			method: 'PATCH',
 			headers: ah(),
 			body: JSON.stringify({ name: editingGenreName })
@@ -135,13 +135,13 @@
 
 	async function deleteGenre(id: string, name: string) {
 		if (!confirm(`Delete "${name}" and all its tracks? This cannot be undone.`)) return;
-		const res = await fetch(`/admin/genres/${id}`, { method: 'DELETE', headers: ah() });
+		const res = await fetch(`/admin/playlists/${id}`, { method: 'DELETE', headers: ah() });
 		if (!res.ok) {
 			alert(await res.text());
 			return;
 		}
 		genres = genres.filter((g) => g.id !== id);
-		if (expandedId === id) expandedId = null;
+		expandedIds = new Set([...expandedIds].filter((x) => x !== id));
 	}
 
 	function startEditTrack(track: Track) {
@@ -225,7 +225,7 @@
 				const signRes = await fetch('/admin/sign-upload', {
 					method: 'POST',
 					headers: ah(),
-					body: JSON.stringify({ genre: genreName, filename: file.name })
+					body: JSON.stringify({ playlist: genreName, filename: file.name })
 				});
 				if (!signRes.ok) throw new Error(await signRes.text());
 				const { path, token } = await signRes.json();
@@ -239,7 +239,7 @@
 					method: 'POST',
 					headers: ah(),
 					body: JSON.stringify({
-						genre_name: genreName,
+						playlist_name: genreName,
 						title,
 						storage_path: path,
 						duration_seconds: duration
@@ -289,7 +289,7 @@
 		<div>
 			<p class="music-kicker mb-2">Backstage</p>
 			<h1 class="stage-title text-3xl font-black">Music Library</h1>
-			<p class="mt-1 text-sm text-zinc-300">Tracks, genres, and active rooms.</p>
+			<p class="mt-1 text-sm text-zinc-300">Tracks, playlists, and active rooms.</p>
 		</div>
 		<HomeButton class="shrink-0" />
 	</header>
@@ -315,12 +315,12 @@
 			</button>
 		</form>
 	{:else}
-		<!-- New genre -->
+		<!-- New playlist -->
 		<form onsubmit={createGenre} class="music-panel mb-8 flex gap-2 rounded-2xl p-4">
 			<input
 				type="text"
 				bind:value={newGenreName}
-				placeholder="New genre name…"
+				placeholder="New playlist name…"
 				class="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500"
 			/>
 			<button
@@ -328,13 +328,13 @@
 				disabled={creatingGenre || !newGenreName.trim()}
 				class="primary-glow rounded-xl px-4 py-2 text-sm font-black text-white disabled:opacity-40"
 			>
-				{creatingGenre ? 'Creating…' : '+ Genre'}
+				{creatingGenre ? 'Creating…' : '+ Playlist'}
 			</button>
 		</form>
 
-		<!-- Genre list -->
+		<!-- Playlist list -->
 		{#if genres.length === 0}
-			<p class="text-sm text-zinc-400">No genres yet.</p>
+			<p class="text-sm text-zinc-400">No playlists yet.</p>
 		{:else}
 			<div class="music-panel flex flex-col divide-y divide-white/10 rounded-2xl">
 				{#each genres as genre (genre.id)}
@@ -342,8 +342,8 @@
 						<!-- Genre row -->
 						<div class="flex items-center gap-2 px-4 py-3">
 							<button
-								onclick={() => expandGenre(genre.id)}
-								class="mr-1 text-zinc-400 transition-transform {expandedId === genre.id
+								onclick={() => togglePlaylist(genre.id)}
+								class="mr-1 text-zinc-400 transition-transform {expandedIds.has(genre.id)
 									? 'rotate-90'
 									: ''}"
 								aria-label="expand">▶</button
@@ -381,7 +381,7 @@
 						</div>
 
 						<!-- Expanded: tracks + upload -->
-						{#if expandedId === genre.id}
+						{#if expandedIds.has(genre.id)}
 							<div class="border-t border-white/10 bg-black/20 px-4 py-3">
 								{#if loadingTracksFor === genre.id}
 									<p class="text-sm text-zinc-400">Loading…</p>

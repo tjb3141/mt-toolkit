@@ -29,7 +29,7 @@
 	}
 
 	onMount(async () => {
-		const { data } = await supabase.from('genres').select('id, name').order('display_order');
+		const { data } = await supabase.from('playlists').select('id, name').order('display_order');
 		genres = data ?? [];
 
 		channel = supabase
@@ -67,12 +67,12 @@
 	async function selectGenre(genre: Genre) {
 		selectedGenre = genre;
 		if (participantId) {
-			await supabase.from('participants').update({ genre_id: genre.id }).eq('id', participantId);
+			await supabase.from('participants').update({ playlist_id: genre.id }).eq('id', participantId);
 		}
 		const { data } = await supabase
 			.from('tracks')
 			.select('id, title, storage_path, duration_seconds')
-			.eq('genre_id', genre.id);
+			.eq('playlist_id', genre.id);
 		tracks = shuffle(data ?? []);
 		currentIndex = 0;
 	}
@@ -213,7 +213,7 @@
 				}}
 				class="text-left text-sm text-zinc-500 underline underline-offset-4 hover:text-zinc-300"
 			>
-				Change genre
+				Change playlist
 			</button>
 		</div>
 	</div>

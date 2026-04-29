@@ -64,7 +64,7 @@
 				.select('id, name, joined_at')
 				.eq('session_id', session.id)
 				.order('joined_at'),
-			supabase.from('genres').select('id, name').order('display_order')
+			supabase.from('playlists').select('id, name').order('display_order')
 		]);
 		participants = pData ?? [];
 		genres = gData ?? [];
@@ -198,7 +198,7 @@
 	async function startGame() {
 		startingGame = true;
 		const trackQuery = supabase.from('tracks').select('id, title');
-		if (selectedGenreId) trackQuery.eq('genre_id', selectedGenreId);
+		if (selectedGenreId) trackQuery.eq('playlist_id', selectedGenreId);
 		const { data: trackData } = await trackQuery;
 		const shuffledTracks = shuffle(trackData ?? []);
 		const trackMap = Object.fromEntries((trackData ?? []).map((t) => [t.id, t.title]));
@@ -243,7 +243,7 @@
 		startingGame = true;
 
 		const trackQuery = supabase.from('tracks').select('id, title');
-		if (selectedGenreId) trackQuery.eq('genre_id', selectedGenreId);
+		if (selectedGenreId) trackQuery.eq('playlist_id', selectedGenreId);
 		const { data: trackData } = await trackQuery;
 		const shuffledTracks = shuffle(trackData ?? []);
 		const trackMap = Object.fromEntries((trackData ?? []).map((t) => [t.id, t.title]));
@@ -423,7 +423,7 @@
 		{/if}
 
 		<div class="music-panel rounded-2xl p-5">
-			<p class="music-kicker mb-3">Genre</p>
+			<p class="music-kicker mb-3">Playlist</p>
 			<div class="flex flex-wrap gap-2">
 				<button
 					onclick={() => (selectedGenreId = null)}
@@ -431,7 +431,7 @@
 						? 'bg-violet-600 text-white'
 						: 'bg-zinc-800 text-white hover:bg-zinc-700'}"
 				>
-					All genres
+					All playlists
 				</button>
 				{#each genres as g (g.id)}
 					<button
@@ -480,7 +480,7 @@
 				<p class="text-center text-2xl font-black text-emerald-400">All pairs found!</p>
 				<div>
 					<p class="mb-2 text-xs font-semibold tracking-widest text-zinc-400 uppercase">
-						Genre for next round
+						Playlist for next round
 					</p>
 					<div class="flex flex-wrap gap-2">
 						<button
@@ -490,7 +490,7 @@
 								? 'bg-violet-600 text-white'
 								: 'bg-zinc-800 text-white hover:bg-zinc-700'}"
 						>
-							All genres
+							All playlists
 						</button>
 						{#each genres as g (g.id)}
 							<button

@@ -9,14 +9,15 @@ export const POST: RequestHandler = async ({ request }) => {
 	const admin = createClient(PUBLIC_SUPABASE_URL, serviceKey);
 
 	if (!adminSecret || request.headers.get('x-admin-secret') !== adminSecret) throw error(401, 'Unauthorized');
-	const { playlist, filename } = await request.json();
-	if (!playlist?.trim() || !filename?.trim()) throw error(400, 'playlist and filename required');
+	const { name } = await request.json();
+	if (!name?.trim()) throw error(400, 'name required');
 
-	const slug = playlist.trim().toLowerCase().replace(/\s+/g, '_');
-	const path = `${slug}/${crypto.randomUUID()}.mp3`;
-
-	const { data, error: err } = await admin.storage.from('tracks').createSignedUploadUrl(path);
+	const { data, error: err } = await admin
+		.from('playlists')
+		.insert({ name: name.trim(), display_order: 0 })
+		.select('id, name, display_order')
+		.single();
 	if (err) throw error(500, err.message);
 
-	return json({ path, signedUrl: data.signedUrl, token: data.token });
+	return json(data);
 };

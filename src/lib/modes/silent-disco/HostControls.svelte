@@ -13,7 +13,7 @@
 	type Participant = {
 		id: string;
 		name: string;
-		genre_id: string | null;
+		playlist_id: string | null;
 		current_track: string | null;
 		joined_at: string;
 	};
@@ -38,7 +38,7 @@
 
 		const { data } = await supabase
 			.from('participants')
-			.select('id, name, genre_id, current_track, joined_at')
+			.select('id, name, playlist_id, current_track, joined_at')
 			.eq('session_id', session.id)
 			.order('joined_at');
 		participants = data ?? [];
@@ -147,7 +147,7 @@
 						<div class="flex items-center justify-between">
 							<span class="font-semibold">{p.name}</span>
 							<span class="text-xs text-zinc-500">
-								{p.genre_id ? (genreMap[p.genre_id] ?? '...') : 'picking...'}
+								{p.playlist_id ? (genreMap[p.playlist_id] ?? '...') : 'picking...'}
 							</span>
 						</div>
 						{#if p.current_track}

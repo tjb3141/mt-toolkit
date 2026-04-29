@@ -9,32 +9,32 @@ export const POST: RequestHandler = async ({ request }) => {
 	const admin = createClient(PUBLIC_SUPABASE_URL, serviceKey);
 
 	if (!adminSecret || request.headers.get('x-admin-secret') !== adminSecret) throw error(401, 'Unauthorized');
-	const { genre_name, title, storage_path, duration_seconds } = await request.json();
+	const { playlist_name, title, storage_path, duration_seconds } = await request.json();
 
 	const { data: existing } = await admin
-		.from('genres')
+		.from('playlists')
 		.select('id')
-		.eq('name', genre_name.trim())
+		.eq('name', playlist_name.trim())
 		.maybeSingle();
 
-	let genre_id = existing?.id;
+	let playlist_id = existing?.id;
 
-	if (!genre_id) {
+	if (!playlist_id) {
 		const { data: created, error: gErr } = await admin
-			.from('genres')
-			.insert({ name: genre_name.trim(), display_order: 0 })
+			.from('playlists')
+			.insert({ name: playlist_name.trim(), display_order: 0 })
 			.select('id')
 			.single();
 		if (gErr) throw error(500, gErr.message);
-		genre_id = created.id;
+		playlist_id = created.id;
 	}
 
 	const { data: track, error: tErr } = await admin
 		.from('tracks')
-		.insert({ genre_id, title, storage_path, duration_seconds })
+		.insert({ playlist_id, title, storage_path, duration_seconds })
 		.select('id')
 		.single();
 	if (tErr) throw error(500, tErr.message);
 
-	return json({ ok: true, id: track.id, genre_id });
+	return json({ ok: true, id: track.id, playlist_id });
 };
