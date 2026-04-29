@@ -34,7 +34,8 @@
 
 		channel = supabase
 			.channel(`session:${session.id}`)
-			.on('postgres_changes',
+			.on(
+				'postgres_changes',
 				{ event: 'UPDATE', schema: 'public', table: 'sessions', filter: `id=eq.${session.id}` },
 				(payload) => {
 					const newState = payload.new.playback_state;
@@ -101,77 +102,89 @@
 		const _tracks = tracks;
 		const _index = currentIndex;
 		if (!_pid || _tracks.length === 0) return;
-		supabase.from('participants')
+		supabase
+			.from('participants')
 			.update({ current_track: _tracks[_index].title })
 			.eq('id', _pid)
-			.then(({ error }) => { if (error) console.error('current_track update failed:', error); });
+			.then(({ error }) => {
+				if (error) console.error('current_track update failed:', error);
+			});
 	});
 </script>
 
 {#if !participantId}
-	<div class="flex min-h-screen flex-col items-center justify-center gap-8 p-8">
-		<div class="text-center">
-			<p class="mb-2 text-xs font-semibold uppercase tracking-[0.3em] text-violet-400">MT Toolkit</p>
-			<h1 class="text-4xl font-black">What's your name?</h1>
+	<div
+		class="stage-shell mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-6 px-5 py-8"
+	>
+		<div class="music-panel-strong rounded-2xl p-6 text-center">
+			<div class="record-mark mx-auto mb-6"></div>
+			<p class="music-kicker mb-2">MT Toolkit</p>
+			<h1 class="stage-title text-4xl font-black">What's your name?</h1>
 		</div>
-		<form onsubmit={submitName} class="flex flex-col items-center gap-4">
+		<form onsubmit={submitName} class="music-panel flex flex-col gap-4 rounded-2xl p-5">
 			<input
 				bind:value={name}
 				placeholder="Your name"
 				required
 				maxlength="32"
 				autocomplete="off"
-				class="w-64 rounded-2xl border-2 border-zinc-700 bg-zinc-900 px-6 py-4 text-center text-2xl font-bold text-white placeholder:text-zinc-600 focus:border-violet-500 focus:outline-none"
+				class="w-full rounded-xl border-2 border-white/10 bg-black/30 px-6 py-4 text-center text-2xl font-bold text-white placeholder:text-zinc-600 focus:border-cyan-300 focus:outline-none"
 			/>
 			<button
 				type="submit"
 				disabled={submittingName || name.trim().length === 0}
-				class="w-64 rounded-2xl bg-violet-600 py-4 text-lg font-bold text-white transition-colors hover:bg-violet-500 disabled:opacity-30"
+				class="primary-glow w-full rounded-xl py-4 text-lg font-black text-white transition disabled:opacity-30"
 			>
-				{submittingName ? 'Joining…' : "Let's go"}
+				{submittingName ? 'Joining...' : "Let's go"}
 			</button>
 		</form>
 	</div>
-
 {:else if !selectedGenre}
-	<div class="flex min-h-screen flex-col gap-6 p-8">
-		<div class="pt-4">
-			<p class="text-xs font-semibold uppercase tracking-[0.3em] text-violet-400">MT Toolkit</p>
-			<h2 class="mt-2 text-4xl font-black leading-tight">Pick your<br />vibe, {name}</h2>
+	<div class="stage-shell mx-auto flex min-h-screen w-full max-w-md flex-col gap-6 px-5 py-8">
+		<div class="music-panel-strong rounded-2xl p-6">
+			<p class="music-kicker">MT Toolkit</p>
+			<h2 class="stage-title mt-2 text-4xl leading-tight font-black">Pick your vibe, {name}</h2>
 		</div>
 		<div class="flex flex-col gap-3">
 			{#each genres as genre}
 				<button
 					onclick={() => selectGenre(genre)}
-					class="rounded-2xl bg-zinc-900 px-6 py-6 text-left text-2xl font-black tracking-tight transition-all hover:bg-zinc-800 active:scale-95"
+					class="music-panel flex items-center gap-4 rounded-2xl px-6 py-6 text-left text-2xl font-black tracking-tight transition-all hover:border-cyan-300/60 active:scale-95"
 				>
+					<span class="icon-tile" aria-hidden="true">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="h-7 w-7">
+							<path d="M9 18V5l11-2v13" stroke-width="2.25" stroke-linejoin="round" />
+							<circle cx="6" cy="18" r="3" stroke-width="2.25" />
+							<circle cx="17" cy="16" r="3" stroke-width="2.25" />
+						</svg>
+					</span>
 					{genre.name}
 				</button>
 			{/each}
 		</div>
 	</div>
-
 {:else if tracks.length === 0}
-	<div class="flex min-h-screen items-center justify-center">
-		<p class="text-zinc-500">Loading tracks…</p>
+	<div class="stage-shell flex min-h-screen items-center justify-center">
+		<p class="text-zinc-400">Loading tracks...</p>
 	</div>
-
 {:else}
-	<div class="flex min-h-screen flex-col justify-between p-8">
+	<div
+		class="stage-shell mx-auto flex min-h-screen w-full max-w-md flex-col justify-between gap-8 px-5 py-8"
+	>
 		<div>
-			<p class="text-xs font-semibold uppercase tracking-[0.3em] text-violet-400">MT Toolkit</p>
-			<p class="mt-1 text-sm text-zinc-500">{selectedGenre.name}</p>
+			<p class="music-kicker">MT Toolkit</p>
+			<p class="mt-1 text-sm text-zinc-400">{selectedGenre.name}</p>
 		</div>
 
-		<div class="flex flex-col gap-3">
+		<div class="music-panel-strong rounded-2xl p-6">
 			{#if playbackState === 'playing'}
-				<p class="text-xs font-semibold uppercase tracking-widest text-emerald-400">Now playing</p>
+				<p class="music-kicker text-emerald-300">Now playing</p>
 			{:else if playbackState === 'ended'}
-				<p class="text-xs font-semibold uppercase tracking-widest text-zinc-500">Session ended</p>
+				<p class="music-kicker text-zinc-500">Session ended</p>
 			{:else}
-				<p class="text-xs font-semibold uppercase tracking-widest text-zinc-500">Waiting for host…</p>
+				<p class="music-kicker text-zinc-500">Waiting for host...</p>
 			{/if}
-			<p class="text-3xl font-black leading-tight">{tracks[currentIndex].title}</p>
+			<p class="stage-title mt-3 text-3xl leading-tight font-black">{tracks[currentIndex].title}</p>
 			<p class="text-sm text-zinc-500">Track {currentIndex + 1} of {tracks.length}</p>
 		</div>
 
@@ -181,21 +194,24 @@
 			<div class="flex gap-4">
 				<button
 					onclick={prevTrack}
-					class="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-zinc-900 py-5 text-lg font-bold transition-all hover:bg-zinc-800 active:scale-95"
+					class="music-panel flex flex-1 items-center justify-center gap-2 rounded-2xl py-5 text-lg font-bold transition-all hover:border-white/25 active:scale-95"
 				>
-					⏮ Prev
+					Prev
 				</button>
 				<button
 					onclick={nextTrack}
-					class="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-zinc-900 py-5 text-lg font-bold transition-all hover:bg-zinc-800 active:scale-95"
+					class="music-panel flex flex-1 items-center justify-center gap-2 rounded-2xl py-5 text-lg font-bold transition-all hover:border-white/25 active:scale-95"
 				>
-					Skip ⏭
+					Skip
 				</button>
 			</div>
 
 			<button
-				onclick={() => { selectedGenre = null; tracks = []; }}
-				class="text-left text-sm text-zinc-600 underline underline-offset-4 hover:text-zinc-400"
+				onclick={() => {
+					selectedGenre = null;
+					tracks = [];
+				}}
+				class="text-left text-sm text-zinc-500 underline underline-offset-4 hover:text-zinc-300"
 			>
 				Change genre
 			</button>

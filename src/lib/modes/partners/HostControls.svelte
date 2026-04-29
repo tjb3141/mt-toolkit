@@ -296,37 +296,38 @@
 </script>
 
 {#if localPhase === 'lobby'}
-	<div class="mx-auto flex min-h-screen w-full max-w-md flex-col items-center gap-8 px-6 py-8">
+	<div
+		class="stage-shell mx-auto flex min-h-screen w-full max-w-lg flex-col items-center gap-6 px-5 py-6"
+	>
 		<div class="flex w-full items-center justify-between gap-4">
-			<p class="text-xs font-semibold tracking-[0.3em] text-violet-400 uppercase">
-				MT Toolkit / Partners / Host
-			</p>
+			<p class="music-kicker">Partners Host</p>
 			<HomeButton class="shrink-0" />
 		</div>
 
-		<div class="text-center">
-			<p class="mb-2 text-xs font-semibold tracking-widest text-zinc-500 uppercase">Session code</p>
-			<p class="text-7xl font-black tracking-widest">{session.code}</p>
-		</div>
+		<section class="music-panel-strong w-full rounded-2xl p-6 text-center">
+			<p class="music-kicker mb-3">Room Code</p>
+			<p class="stage-title text-7xl font-black tracking-widest sm:text-8xl">{session.code}</p>
+			<p class="mt-4 text-sm font-semibold text-cyan-100">Get everyone into the room first</p>
+		</section>
 
 		{#if qrDataUrl}
-			<div class="rounded-lg bg-zinc-900 p-3">
-				<img src={qrDataUrl} alt="QR code to join session" class="h-44 w-44" />
+			<div class="music-panel rounded-2xl p-4">
+				<img src={qrDataUrl} alt="QR code to join session" class="h-52 w-52" />
 			</div>
 		{/if}
 
-		<p class="max-w-xs text-center text-xs break-all text-zinc-500">{joinUrl}</p>
+		<p class="max-w-sm text-center text-xs break-all text-zinc-400">{joinUrl}</p>
 
-		<div class="w-full max-w-sm">
-			<p class="mb-3 text-xs font-semibold tracking-widest text-zinc-500 uppercase">
+		<div class="music-panel w-full rounded-2xl p-5">
+			<p class="music-kicker mb-3">
 				Participants ({participants.length})
 			</p>
 			{#if participants.length === 0}
-				<p class="text-sm text-zinc-600">No one has joined yet.</p>
+				<p class="text-sm text-zinc-400">No one has joined yet.</p>
 			{:else}
 				<ul class="flex flex-col gap-2">
 					{#each participants as p (p.id)}
-						<li class="rounded-lg bg-zinc-900 px-5 py-4 font-semibold">{p.name}</li>
+						<li class="rounded-xl bg-white/5 px-5 py-4 font-semibold">{p.name}</li>
 					{/each}
 				</ul>
 			{/if}
@@ -336,29 +337,29 @@
 			<div class="flex w-full max-w-sm flex-col gap-3">
 				<button
 					onclick={() => startAssigning('auto')}
-					class="rounded-lg bg-violet-600 py-4 text-lg font-bold text-white transition-colors hover:bg-violet-500"
+					class="primary-glow rounded-2xl py-5 text-xl font-black text-white transition active:scale-95"
 				>
 					Auto Assign Partners
 				</button>
 				<button
 					onclick={() => startAssigning('manual')}
-					class="rounded-lg bg-zinc-800 py-4 text-lg font-bold text-white transition-colors hover:bg-zinc-700"
+					class="music-panel rounded-2xl py-5 text-xl font-black text-white transition hover:border-white/25 active:scale-95"
 				>
 					Assign Manually
 				</button>
 			</div>
 		{:else}
-			<p class="text-sm text-zinc-600">Waiting for at least 2 participants...</p>
+			<p class="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-zinc-300">
+				Waiting for at least 2 participants...
+			</p>
 		{/if}
 	</div>
 {:else if localPhase === 'assigning'}
-	<div class="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-6 px-6 py-8">
+	<div class="stage-shell mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-6 px-5 py-6">
 		<div class="flex items-start justify-between gap-4">
 			<div>
-				<p class="text-xs font-semibold tracking-[0.3em] text-violet-400 uppercase">
-					MT Toolkit / Partners / Host
-				</p>
-				<h2 class="mt-2 text-3xl font-black">Assign Partners</h2>
+				<p class="music-kicker">Partners Host</p>
+				<h2 class="stage-title mt-2 text-4xl font-black">Pair the room</h2>
 				<p class="mt-1 text-sm text-zinc-500">
 					{assignmentMode === 'auto'
 						? 'Auto-assigned. Remove pairs to adjust.'
@@ -392,16 +393,16 @@
 			</div>
 		{/if}
 
-		<div>
-			<p class="mb-3 text-xs font-semibold tracking-widest text-zinc-500 uppercase">
+		<div class="music-panel rounded-2xl p-5">
+			<p class="music-kicker mb-3">
 				Pairs ({pendingPairs.length})
 			</p>
 			{#if pendingPairs.length === 0}
-				<p class="text-sm text-zinc-600">No pairs yet.</p>
+				<p class="text-sm text-zinc-400">No pairs yet.</p>
 			{:else}
 				<ul class="flex flex-col gap-2">
 					{#each pendingPairs as pair, i}
-						<li class="flex items-center justify-between rounded-lg bg-zinc-900 px-5 py-4">
+						<li class="flex items-center justify-between rounded-xl bg-white/5 px-5 py-4">
 							<span class="font-semibold">{pair.p1.name} + {pair.p2.name}</span>
 							<button
 								onclick={() => removePair(i)}
@@ -421,8 +422,8 @@
 			</p>
 		{/if}
 
-		<div>
-			<p class="mb-3 text-xs font-semibold tracking-widest text-zinc-500 uppercase">Genre</p>
+		<div class="music-panel rounded-2xl p-5">
+			<p class="music-kicker mb-3">Genre</p>
 			<div class="flex flex-wrap gap-2">
 				<button
 					onclick={() => (selectedGenreId = null)}
@@ -449,25 +450,23 @@
 		<div class="mt-auto flex gap-3">
 			<button
 				onclick={() => (localPhase = 'lobby')}
-				class="flex-1 rounded-lg bg-zinc-800 py-4 font-bold transition-colors hover:bg-zinc-700"
+				class="music-panel flex-1 rounded-2xl py-4 font-bold transition hover:border-white/25"
 			>
 				Back
 			</button>
 			<button
 				onclick={startGame}
 				disabled={pendingPairs.length === 0 || startingGame}
-				class="flex-1 rounded-lg bg-emerald-600 py-4 text-lg font-bold text-white transition-colors hover:bg-emerald-500 disabled:opacity-30"
+				class="flex-1 rounded-2xl bg-emerald-600 py-4 text-lg font-black text-white transition-colors hover:bg-emerald-500 disabled:opacity-30"
 			>
 				{startingGame ? 'Starting...' : 'Start Game'}
 			</button>
 		</div>
 	</div>
 {:else if localPhase === 'playing'}
-	<div class="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-6 px-6 py-8">
+	<div class="stage-shell mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-6 px-5 py-6">
 		<div class="flex items-center justify-between">
-			<p class="text-xs font-semibold tracking-[0.3em] text-violet-400 uppercase">
-				MT Toolkit / Partners / Host
-			</p>
+			<p class="music-kicker">Find Your Match</p>
 			<div class="flex items-center gap-4">
 				<span class="text-xs text-zinc-500"
 					>{pairs.filter((p) => p.found).length}/{pairs.length} found</span
@@ -477,9 +476,7 @@
 		</div>
 
 		{#if allFound}
-			<div
-				class="flex flex-col gap-4 rounded-lg border border-emerald-700 bg-emerald-900/30 px-6 py-5"
-			>
+			<div class="music-panel-strong flex flex-col gap-4 rounded-2xl px-6 py-5">
 				<p class="text-center text-2xl font-black text-emerald-400">All pairs found!</p>
 				<div>
 					<p class="mb-2 text-xs font-semibold tracking-widest text-zinc-400 uppercase">
@@ -529,7 +526,7 @@
 		<ul class="flex flex-col gap-3">
 			{#each pairs as pair (pair.id)}
 				<li
-					class="rounded-lg bg-zinc-900 px-5 py-4 transition-opacity {pair.found
+					class="music-panel rounded-2xl px-5 py-4 transition-opacity {pair.found
 						? 'opacity-40'
 						: ''}"
 				>
@@ -561,11 +558,11 @@
 		</button>
 	</div>
 {:else}
-	<div class="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
-		<p class="text-xs font-semibold tracking-[0.3em] text-violet-400 uppercase">
-			MT Toolkit / Partners / Host
-		</p>
-		<p class="text-2xl font-black">Session complete</p>
+	<div
+		class="stage-shell flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center"
+	>
+		<p class="music-kicker">Partners Host</p>
+		<p class="stage-title text-4xl font-black">Session complete</p>
 		<p class="text-zinc-500">All pairs found. Great session!</p>
 		<HomeButton />
 	</div>

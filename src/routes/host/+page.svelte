@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import HomeButton from '$lib/HomeButton.svelte';
-	import { supabase } from '$lib/supabase';
 	import { modes } from '$lib/modes/index';
+	import { supabase } from '$lib/supabase';
 
 	let selectedMode = $state<string>('silent_disco');
 	let creating = $state(false);
@@ -40,45 +40,89 @@
 
 		creating = false;
 	}
+
+	function modeHelp(key: string) {
+		return key === 'partners'
+			? 'Pair people up by matching songs.'
+			: 'Everyone listens solo while you control play and pause.';
+	}
 </script>
 
-<main class="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-8 px-6 py-10">
-	<HomeButton class="self-start" />
-
-	<div>
-		<p class="mb-2 text-sm font-semibold tracking-[0.3em] text-violet-400 uppercase">MT Toolkit</p>
-		<h1 class="text-5xl font-black tracking-tight">Start a session</h1>
+<main
+	class="stage-shell mx-auto flex min-h-screen w-full max-w-lg flex-col justify-center gap-6 px-5 py-8"
+>
+	<div class="flex items-center justify-between">
+		<HomeButton class="shrink-0" />
+		<div class="equalizer h-10" aria-hidden="true">
+			<span></span>
+			<span></span>
+			<span></span>
+			<span></span>
+			<span></span>
+		</div>
 	</div>
 
-	<div class="flex w-full flex-col gap-3">
-		<p class="text-xs font-semibold tracking-widest text-zinc-500 uppercase">Mode</p>
+	<section class="music-panel-strong rounded-2xl p-6">
+		<p class="music-kicker mb-3">Host Booth</p>
+		<h1 class="stage-title text-5xl font-black tracking-tight">Pick the vibe</h1>
+		<p class="mt-3 text-sm leading-6 text-zinc-300">
+			Choose a mode, then the app gives you a giant room code and QR screen.
+		</p>
+	</section>
+
+	<div class="grid gap-3">
+		<p class="music-kicker">Mode</p>
 		{#each Object.entries(modes) as [key, m]}
 			<label
-				class="flex cursor-pointer items-center gap-4 rounded-lg border-2 px-5 py-4 transition-colors {selectedMode ===
+				class="music-panel flex cursor-pointer items-center gap-4 rounded-2xl p-5 transition {selectedMode ===
 				key
-					? 'border-violet-500 bg-violet-950'
-					: 'border-zinc-800 bg-zinc-900 hover:border-zinc-600'}"
+					? 'border-cyan-300/80 bg-cyan-300/10'
+					: 'hover:border-white/25'}"
 			>
-				<input type="radio" bind:group={selectedMode} value={key} class="hidden" />
-				<div class="flex flex-col">
-					<span class="font-bold">{m.label}</span>
+				<input type="radio" bind:group={selectedMode} value={key} class="sr-only" />
+				<div class="icon-tile" aria-hidden="true">
+					{#if key === 'partners'}
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="h-8 w-8">
+							<path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke-width="2.25" />
+							<path d="M16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke-width="2.25" />
+							<path d="M3.5 20a4.5 4.5 0 0 1 9 0" stroke-width="2.25" stroke-linecap="round" />
+							<path d="M11.5 20a4.5 4.5 0 0 1 9 0" stroke-width="2.25" stroke-linecap="round" />
+						</svg>
+					{:else}
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="h-8 w-8">
+							<path d="M4 13a8 8 0 0 1 16 0" stroke-width="2.25" stroke-linecap="round" />
+							<path
+								d="M5 13h3v6H5a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2Zm11 0h3a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-3v-6Z"
+								stroke-width="2.25"
+								stroke-linejoin="round"
+							/>
+						</svg>
+					{/if}
+				</div>
+				<div class="min-w-0 flex-1">
+					<p class="text-xl font-black">{m.label}</p>
+					<p class="text-sm text-zinc-400">{modeHelp(key)}</p>
 				</div>
 				{#if selectedMode === key}
-					<span class="ml-auto text-sm font-semibold text-violet-400">Selected</span>
+					<span class="rounded-full bg-cyan-300 px-3 py-1 text-xs font-black text-zinc-950">
+						On
+					</span>
 				{/if}
 			</label>
 		{/each}
 	</div>
 
 	{#if error}
-		<p class="text-sm text-red-400">{error}</p>
+		<p class="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+			{error}
+		</p>
 	{/if}
 
 	<button
 		onclick={createSession}
 		disabled={creating}
-		class="w-full rounded-lg bg-violet-600 py-4 text-lg font-bold text-white transition-colors hover:bg-violet-500 disabled:opacity-30"
+		class="primary-glow w-full rounded-2xl py-5 text-2xl font-black text-white transition active:scale-95 disabled:opacity-30"
 	>
-		{creating ? 'Creating...' : 'Create session'}
+		{creating ? 'Making room...' : 'Make the Room'}
 	</button>
 </main>

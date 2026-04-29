@@ -88,34 +88,39 @@
 	}
 </script>
 
-<div class="mx-auto flex min-h-screen w-full max-w-md flex-col items-center gap-8 px-6 py-8">
+<div
+	class="stage-shell mx-auto flex min-h-screen w-full max-w-lg flex-col items-center gap-6 px-5 py-6"
+>
 	<div class="flex w-full items-center justify-between gap-4">
-		<p class="text-xs font-semibold tracking-[0.3em] text-violet-400 uppercase">
-			MT Toolkit / Host
-		</p>
+		<p class="music-kicker">Silent Disco Host</p>
 		<HomeButton class="shrink-0" />
 	</div>
 
-	<div class="text-center">
-		<p class="mb-2 text-xs font-semibold tracking-widest text-zinc-500 uppercase">Session code</p>
-		<p class="text-7xl font-black tracking-widest">{session.code}</p>
-	</div>
+	<section class="music-panel-strong w-full rounded-2xl p-6 text-center">
+		<p class="music-kicker mb-3">Room Code</p>
+		<p class="stage-title text-7xl font-black tracking-widest sm:text-8xl">{session.code}</p>
+		<div
+			class="mx-auto mt-5 w-fit rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold text-cyan-100"
+		>
+			Guests scan or type this code
+		</div>
+	</section>
 
 	{#if qrDataUrl}
-		<div class="rounded-lg bg-zinc-900 p-3">
-			<img src={qrDataUrl} alt="QR code to join session" class="h-44 w-44" />
+		<div class="music-panel rounded-2xl p-4">
+			<img src={qrDataUrl} alt="QR code to join session" class="h-52 w-52" />
 		</div>
 	{/if}
 
-	<p class="max-w-xs text-center text-xs break-all text-zinc-500">{joinUrl}</p>
+	<p class="max-w-sm text-center text-xs break-all text-zinc-400">{joinUrl}</p>
 
 	{#if playbackState !== 'ended'}
 		<button
 			onclick={toggle}
-			class="h-36 w-36 rounded-full text-2xl font-black text-white shadow-lg transition-all active:scale-95 {playbackState ===
+			class="grid h-44 w-44 place-items-center rounded-full text-3xl font-black text-white shadow-2xl transition-all active:scale-95 {playbackState ===
 			'playing'
-				? 'bg-red-500 shadow-red-900 hover:bg-red-400'
-				: 'bg-emerald-500 shadow-emerald-900 hover:bg-emerald-400'}"
+				? 'bg-red-500 shadow-red-950 hover:bg-red-400'
+				: 'bg-emerald-500 shadow-emerald-950 hover:bg-emerald-400'}"
 		>
 			{playbackState === 'playing' ? 'Pause' : 'Play'}
 		</button>
@@ -129,16 +134,16 @@
 		<p class="text-zinc-500">Session ended.</p>
 	{/if}
 
-	<div class="w-full max-w-sm">
-		<p class="mb-3 text-xs font-semibold tracking-widest text-zinc-500 uppercase">
+	<div class="music-panel w-full rounded-2xl p-5">
+		<p class="music-kicker mb-3">
 			Participants ({participants.length})
 		</p>
 		{#if participants.length === 0}
-			<p class="text-sm text-zinc-600">No one has joined yet.</p>
+			<p class="text-sm text-zinc-400">No one has joined yet.</p>
 		{:else}
 			<ul class="flex flex-col gap-2">
 				{#each participants as p (p.id)}
-					<li class="flex flex-col gap-1 rounded-lg bg-zinc-900 px-5 py-4">
+					<li class="flex flex-col gap-1 rounded-xl bg-white/5 px-5 py-4">
 						<div class="flex items-center justify-between">
 							<span class="font-semibold">{p.name}</span>
 							<span class="text-xs text-zinc-500">

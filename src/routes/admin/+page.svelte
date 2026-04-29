@@ -284,14 +284,18 @@
 	}
 </script>
 
-<main class="mx-auto max-w-2xl p-8 font-sans">
-	<header class="mb-6 flex items-center justify-between gap-4">
-		<h1 class="text-2xl font-bold">MT Toolkit - Library</h1>
+<main class="stage-shell mx-auto max-w-3xl p-5 font-sans sm:p-8">
+	<header class="music-panel-strong mb-6 flex items-center justify-between gap-4 rounded-2xl p-5">
+		<div>
+			<p class="music-kicker mb-2">Backstage</p>
+			<h1 class="stage-title text-3xl font-black">Music Library</h1>
+			<p class="mt-1 text-sm text-zinc-300">Tracks, genres, and active rooms.</p>
+		</div>
 		<HomeButton class="shrink-0" />
 	</header>
 
 	{#if !unlocked}
-		<form onsubmit={unlock} class="flex max-w-xs flex-col gap-3">
+		<form onsubmit={unlock} class="music-panel flex max-w-sm flex-col gap-4 rounded-2xl p-5">
 			<label class="flex flex-col gap-1 text-sm font-medium">
 				Admin secret
 				<input
@@ -299,30 +303,30 @@
 					bind:value={secret}
 					required
 					autocomplete="current-password"
-					class="rounded border border-zinc-700 bg-zinc-800 px-3 py-2 font-mono text-sm text-white"
+					class="rounded-xl border border-white/10 bg-black/30 px-4 py-3 font-mono text-sm text-white"
 				/>
 			</label>
 			<button
 				type="submit"
 				disabled={loading}
-				class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+				class="primary-glow rounded-xl px-4 py-3 text-sm font-black text-white disabled:opacity-50"
 			>
 				{loading ? 'Loading…' : 'Unlock'}
 			</button>
 		</form>
 	{:else}
 		<!-- New genre -->
-		<form onsubmit={createGenre} class="mb-8 flex gap-2">
+		<form onsubmit={createGenre} class="music-panel mb-8 flex gap-2 rounded-2xl p-4">
 			<input
 				type="text"
 				bind:value={newGenreName}
 				placeholder="New genre name…"
-				class="flex-1 rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder:text-zinc-500"
+				class="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white placeholder:text-zinc-500"
 			/>
 			<button
 				type="submit"
 				disabled={creatingGenre || !newGenreName.trim()}
-				class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-40"
+				class="primary-glow rounded-xl px-4 py-2 text-sm font-black text-white disabled:opacity-40"
 			>
 				{creatingGenre ? 'Creating…' : '+ Genre'}
 			</button>
@@ -332,7 +336,7 @@
 		{#if genres.length === 0}
 			<p class="text-sm text-zinc-400">No genres yet.</p>
 		{:else}
-			<div class="flex flex-col divide-y divide-zinc-700 rounded-lg border border-zinc-700">
+			<div class="music-panel flex flex-col divide-y divide-white/10 rounded-2xl">
 				{#each genres as genre (genre.id)}
 					<div>
 						<!-- Genre row -->
@@ -378,7 +382,7 @@
 
 						<!-- Expanded: tracks + upload -->
 						{#if expandedId === genre.id}
-							<div class="border-t border-zinc-700 bg-zinc-900 px-4 py-3">
+							<div class="border-t border-white/10 bg-black/20 px-4 py-3">
 								{#if loadingTracksFor === genre.id}
 									<p class="text-sm text-zinc-400">Loading…</p>
 								{:else if !genre.tracks || genre.tracks.length === 0}
@@ -465,7 +469,7 @@
 		{/if}
 
 		<!-- Active sessions -->
-		<div class="mt-12">
+		<div class="music-panel mt-12 rounded-2xl p-5">
 			<div class="mb-4 flex items-center gap-4">
 				<h2 class="text-lg font-bold">Active Sessions</h2>
 				<button
@@ -479,7 +483,7 @@
 			{#if sessions.length === 0}
 				<p class="text-sm text-zinc-500">No active sessions. Hit Refresh to load.</p>
 			{:else}
-				<div class="flex flex-col divide-y divide-zinc-700 rounded-lg border border-zinc-700">
+				<div class="flex flex-col divide-y divide-white/10 rounded-2xl border border-white/10">
 					{#each sessions as s (s.id)}
 						<div class="flex items-center gap-3 px-4 py-3">
 							<span class="font-mono text-lg font-bold tracking-widest">{s.code}</span>

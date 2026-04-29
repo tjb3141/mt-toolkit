@@ -135,83 +135,93 @@
 </script>
 
 {#if !participantId}
-	<div class="flex min-h-screen flex-col items-center justify-center gap-8 p-8">
-		<div class="text-center">
-			<p class="mb-2 text-xs font-semibold uppercase tracking-[0.3em] text-violet-400">MT Toolkit</p>
-			<h1 class="text-4xl font-black">What's your name?</h1>
+	<div
+		class="stage-shell mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-6 px-5 py-8"
+	>
+		<div class="music-panel-strong rounded-2xl p-6 text-center">
+			<div class="record-mark mx-auto mb-6"></div>
+			<p class="music-kicker mb-2">MT Toolkit Partners</p>
+			<h1 class="stage-title text-4xl font-black">What's your name?</h1>
 		</div>
-		<form onsubmit={submitName} class="flex flex-col items-center gap-4">
+		<form onsubmit={submitName} class="music-panel flex flex-col gap-4 rounded-2xl p-5">
 			<input
 				bind:value={name}
 				placeholder="Your name"
 				required
 				maxlength="32"
 				autocomplete="off"
-				class="w-64 rounded-2xl border-2 border-zinc-700 bg-zinc-900 px-6 py-4 text-center text-2xl font-bold text-white placeholder:text-zinc-600 focus:border-violet-500 focus:outline-none"
+				class="w-full rounded-xl border-2 border-white/10 bg-black/30 px-6 py-4 text-center text-2xl font-bold text-white placeholder:text-zinc-600 focus:border-cyan-300 focus:outline-none"
 			/>
 			<button
 				type="submit"
 				disabled={submittingName || name.trim().length === 0}
-				class="w-64 rounded-2xl bg-violet-600 py-4 text-lg font-bold text-white transition-colors hover:bg-violet-500 disabled:opacity-30"
+				class="primary-glow w-full rounded-xl py-4 text-lg font-black text-white transition disabled:opacity-30"
 			>
-				{submittingName ? 'Joining…' : "Let's go"}
+				{submittingName ? 'Joining...' : "Let's go"}
 			</button>
 		</form>
 	</div>
-
 {:else if playbackState === 'paused'}
-	<div class="flex min-h-screen flex-col items-center justify-center gap-6 p-8 text-center">
-		<p class="text-xs font-semibold uppercase tracking-[0.3em] text-violet-400">MT Toolkit · Partners</p>
-		<div>
-			<p class="text-4xl font-black">Hi, {name}!</p>
-			<p class="mt-3 text-lg text-zinc-400">Waiting for the host to start the game…</p>
+	<div
+		class="stage-shell mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-6 px-5 py-8 text-center"
+	>
+		<div class="music-panel-strong rounded-2xl p-6">
+			<p class="music-kicker mb-3">MT Toolkit Partners</p>
+			<p class="stage-title text-4xl font-black">Hi, {name}!</p>
+			<p class="mt-3 text-lg text-zinc-300">Waiting for the host to start the game...</p>
 		</div>
-		<div class="h-1.5 w-24 animate-pulse rounded-full bg-zinc-800"></div>
+		<div class="equalizer" aria-hidden="true">
+			<span></span>
+			<span></span>
+			<span></span>
+			<span></span>
+			<span></span>
+		</div>
 	</div>
-
 {:else if playbackState === 'playing'}
 	{#if !pair}
-		<div class="flex min-h-screen items-center justify-center">
-			<p class="text-zinc-500">Loading…</p>
+		<div class="stage-shell flex min-h-screen items-center justify-center">
+			<p class="text-zinc-400">Loading...</p>
 		</div>
 	{:else if pair.found}
-		<div class="flex min-h-screen flex-col items-center justify-center gap-6 p-8 text-center">
-			<p class="text-8xl">🎉</p>
-			<p class="text-4xl font-black">You've been found!</p>
-			<p class="text-lg text-zinc-400">Your partner found you. Nice moves!</p>
+		<div
+			class="stage-shell mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-6 px-5 py-8 text-center"
+		>
+			<div class="record-mark"></div>
+			<p class="stage-title text-4xl font-black">You've been found!</p>
+			<p class="text-lg text-zinc-300">Your partner found you. Nice moves!</p>
 		</div>
 	{:else}
-		<div class="flex min-h-screen flex-col justify-between p-8">
-			<div>
-				<p class="text-xs font-semibold uppercase tracking-[0.3em] text-violet-400">
-					MT Toolkit · Partners
-				</p>
-			</div>
+		<div
+			class="stage-shell mx-auto flex min-h-screen w-full max-w-md flex-col justify-between gap-8 px-5 py-8"
+		>
+			<p class="music-kicker">MT Toolkit Partners</p>
 
-			<div class="flex flex-col gap-4">
-				<p class="text-xs font-semibold uppercase tracking-widest text-emerald-400">Now playing</p>
+			<div class="music-panel-strong rounded-2xl p-6">
+				<p class="music-kicker text-emerald-300">Now playing</p>
 				{#if track}
-					<p class="text-3xl font-black leading-tight">{track.title}</p>
+					<p class="stage-title mt-3 text-3xl leading-tight font-black">{track.title}</p>
 				{:else}
-					<p class="text-zinc-500">Loading track…</p>
+					<p class="mt-3 text-zinc-400">Loading track...</p>
 				{/if}
-				<p class="mt-2 text-xl font-semibold text-zinc-300">
+				<p class="mt-4 text-xl font-semibold text-zinc-200">
 					Find who else is dancing to the same song!
 				</p>
 			</div>
 
 			<audio bind:this={audioEl} loop></audio>
 
-			<p class="text-sm text-zinc-600">
-				Listen and look around — your partner hears this exact song.
+			<p class="music-panel rounded-2xl p-5 text-sm text-zinc-300">
+				Listen and look around. Your partner hears this exact song.
 			</p>
 		</div>
 	{/if}
-
 {:else if playbackState === 'ended'}
-	<div class="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
-		<p class="text-xs font-semibold uppercase tracking-[0.3em] text-violet-400">MT Toolkit · Partners</p>
-		<p class="text-2xl font-black">Session ended</p>
+	<div
+		class="stage-shell flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center"
+	>
+		<p class="music-kicker">MT Toolkit Partners</p>
+		<p class="stage-title text-3xl font-black">Session ended</p>
 		<p class="text-zinc-400">Thanks for playing!</p>
 	</div>
 {/if}

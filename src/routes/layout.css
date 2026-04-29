@@ -1,7 +1,182 @@
 @import 'tailwindcss';
 
+:root {
+	color-scheme: dark;
+	--stage: #080710;
+	--panel: rgba(18, 18, 31, 0.82);
+	--panel-strong: rgba(27, 25, 44, 0.92);
+	--line: rgba(255, 255, 255, 0.12);
+	--violet: #8b5cf6;
+	--cyan: #22d3ee;
+	--pink: #f472b6;
+	--lime: #a3e635;
+}
+
+* {
+	box-sizing: border-box;
+}
+
 body {
-	background-color: #09090b;
+	min-height: 100vh;
+	background:
+		radial-gradient(circle at 18% 12%, rgba(34, 211, 238, 0.2), transparent 28rem),
+		radial-gradient(circle at 86% 18%, rgba(244, 114, 182, 0.16), transparent 24rem),
+		linear-gradient(135deg, #070712 0%, #101021 54%, #09090b 100%);
 	color: #fafafa;
 	font-family: system-ui, sans-serif;
+}
+
+button,
+a,
+input {
+	-webkit-tap-highlight-color: transparent;
+}
+
+.stage-shell {
+	position: relative;
+	overflow: hidden;
+}
+
+.stage-shell::before {
+	position: fixed;
+	inset: 0;
+	z-index: -1;
+	pointer-events: none;
+	content: '';
+	background-image:
+		linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+		linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+	background-size: 46px 46px;
+	mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), transparent 82%);
+}
+
+.music-panel {
+	border: 1px solid var(--line);
+	background:
+		linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.025)), var(--panel);
+	box-shadow: 0 22px 70px rgba(0, 0, 0, 0.34);
+	backdrop-filter: blur(18px);
+}
+
+.music-panel-strong {
+	border: 1px solid var(--line);
+	background:
+		linear-gradient(145deg, rgba(139, 92, 246, 0.2), rgba(34, 211, 238, 0.06)), var(--panel-strong);
+	box-shadow: 0 24px 78px rgba(0, 0, 0, 0.4);
+}
+
+.music-kicker {
+	color: #67e8f9;
+	font-size: 0.72rem;
+	font-weight: 900;
+	letter-spacing: 0.28em;
+	text-transform: uppercase;
+}
+
+.stage-title {
+	text-shadow: 0 0 28px rgba(139, 92, 246, 0.32);
+}
+
+.equalizer {
+	display: flex;
+	align-items: end;
+	gap: 0.32rem;
+	height: 3.5rem;
+}
+
+.equalizer span {
+	display: block;
+	width: 0.55rem;
+	min-height: 0.6rem;
+	border-radius: 999px;
+	background: linear-gradient(to top, var(--violet), var(--cyan));
+	box-shadow: 0 0 18px rgba(34, 211, 238, 0.42);
+	animation: equalizer-pulse 1.25s ease-in-out infinite;
+}
+
+.equalizer span:nth-child(1) {
+	height: 38%;
+	animation-delay: -0.2s;
+}
+
+.equalizer span:nth-child(2) {
+	height: 72%;
+	animation-delay: -0.6s;
+}
+
+.equalizer span:nth-child(3) {
+	height: 52%;
+	animation-delay: -0.95s;
+}
+
+.equalizer span:nth-child(4) {
+	height: 88%;
+	animation-delay: -0.35s;
+}
+
+.equalizer span:nth-child(5) {
+	height: 46%;
+	animation-delay: -0.75s;
+}
+
+.record-mark {
+	position: relative;
+	display: grid;
+	place-items: center;
+	width: 7.25rem;
+	aspect-ratio: 1;
+	border-radius: 999px;
+	background:
+		radial-gradient(circle at center, #fafafa 0 0.45rem, #171827 0.48rem 1rem, transparent 1.04rem),
+		repeating-radial-gradient(circle, #171827 0 0.58rem, #27233f 0.62rem 0.78rem);
+	box-shadow:
+		0 0 0 0.75rem rgba(139, 92, 246, 0.12),
+		0 24px 60px rgba(0, 0, 0, 0.5);
+}
+
+.record-mark::after {
+	position: absolute;
+	width: 1.7rem;
+	aspect-ratio: 1;
+	border-radius: 999px;
+	content: '';
+	background: linear-gradient(135deg, var(--cyan), var(--pink));
+	box-shadow: 0 0 22px rgba(244, 114, 182, 0.55);
+}
+
+.icon-tile {
+	display: grid;
+	place-items: center;
+	width: 3.25rem;
+	height: 3.25rem;
+	border-radius: 1rem;
+	background: rgba(255, 255, 255, 0.08);
+	color: #ffffff;
+	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.primary-glow {
+	background: linear-gradient(135deg, #7c3aed, #0891b2);
+	box-shadow: 0 18px 42px rgba(34, 211, 238, 0.18);
+}
+
+.primary-glow:hover {
+	background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+}
+
+@keyframes equalizer-pulse {
+	0%,
+	100% {
+		transform: scaleY(0.58);
+	}
+
+	50% {
+		transform: scaleY(1.12);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.equalizer span {
+		animation: none;
+	}
 }
