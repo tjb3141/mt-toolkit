@@ -18,7 +18,7 @@
 
 		for (let attempt = 0; attempt < 5; attempt++) {
 			const code = generateCode();
-			const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
+			const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
 			const { data, error: err } = await supabase
 				.from('sessions')
 				.insert({ code, mode: selectedMode, playback_state: 'paused', expires_at: expiresAt })
