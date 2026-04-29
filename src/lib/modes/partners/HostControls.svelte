@@ -207,6 +207,36 @@
 		pairs = pairs.map((p) => (p.id === pairId ? { ...p, found: true } : p));
 	}
 
+	async function restartSamePairs() {
+		startingGame = true;
+		const { data: trackData } = await supabase.from('tracks').select('id, title');
+		const shuffledTracks = shuffle(trackData ?? []);
+
+		await Promise.all(
+			pairs.map((pair, i) =>
+				supabase
+					.from('partners_pairs')
+					.update({ found: false, track_id: shuffledTracks[i % shuffledTracks.length]?.id ?? null })
+					.eq('id', pair.id)
+					.then()
+			)
+		);
+
+		await loadLivePairs();
+		startingGame = false;
+	}
+
+	async function reassignPairs() {
+		await supabase.from('partners_pairs').delete().eq('session_id', session.id);
+		await supabase.from('sessions').update({ playback_state: 'paused' }).eq('id', session.id);
+		pairs = [];
+		pendingPairs = [];
+		unpaired = [...participants];
+		selecting = null;
+		assignmentMode = null;
+		localPhase = 'lobby';
+	}
+
 	async function endSession() {
 		await supabase.from('sessions').update({ playback_state: 'ended' }).eq('id', session.id);
 		localPhase = 'ended';
@@ -363,8 +393,23 @@
 		</div>
 
 		{#if allFound}
-			<div class="rounded-2xl border border-emerald-700 bg-emerald-900/30 px-6 py-5 text-center">
-				<p class="text-2xl font-black text-emerald-400">All pairs found!</p>
+			<div class="rounded-2xl border border-emerald-700 bg-emerald-900/30 px-6 py-5">
+				<p class="text-center text-2xl font-black text-emerald-400">All pairs found!</p>
+				<div class="mt-4 flex gap-3">
+					<button
+						onclick={restartSamePairs}
+						disabled={startingGame}
+						class="flex-1 rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white transition-colors hover:bg-emerald-500 disabled:opacity-30"
+					>
+						{startingGame ? 'Starting…' : 'Same pairs, new songs'}
+					</button>
+					<button
+						onclick={reassignPairs}
+						class="flex-1 rounded-xl bg-zinc-700 py-3 text-sm font-bold text-white transition-colors hover:bg-zinc-600"
+					>
+						New pairs
+					</button>
+				</div>
 			</div>
 		{/if}
 

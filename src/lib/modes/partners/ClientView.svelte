@@ -98,8 +98,20 @@
 					filter: `id=eq.${data.id}`
 				},
 				(payload) => {
-					if (pair) pair = { ...pair, found: payload.new.found };
-					if (payload.new.found && audioEl) audioEl.pause();
+					const newTrackId = payload.new.track_id;
+					const newFound = payload.new.found;
+					if (pair) pair = { ...pair, found: newFound, track_id: newTrackId };
+					if (newFound && audioEl) {
+						audioEl.pause();
+					} else if (!newFound && newTrackId && newTrackId !== track?.id) {
+						// Same pair, new round — load the new track
+						supabase
+							.from('tracks')
+							.select('id, title, storage_path')
+							.eq('id', newTrackId)
+							.single()
+							.then(({ data: t }) => { if (t) track = t; });
+					}
 				}
 			)
 			.subscribe();
