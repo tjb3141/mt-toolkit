@@ -17,7 +17,6 @@
 	let currentIndex = $state(0);
 	// untrack: intentionally capturing initial value only — managed locally after that
 	let playbackState = $state(untrack(() => session.playback_state));
-	let volume = $state(0.8);
 	let audioEl = $state<HTMLAudioElement | null>(null);
 	let submittingName = $state(false);
 	let channel: RealtimeChannel | null = null;
@@ -92,9 +91,7 @@
 		if (state === 'playing') audioEl.play().catch(() => {});
 	});
 
-	$effect(() => {
-		if (audioEl) audioEl.volume = volume;
-	});
+
 </script>
 
 {#if !participantId}
@@ -141,12 +138,7 @@
 
 		<audio bind:this={audioEl} onended={nextTrack}></audio>
 
-		<div class="flex flex-col gap-2">
-			<label for="volume" class="text-sm text-gray-500">Volume</label>
-			<input id="volume" type="range" min="0" max="1" step="0.01" bind:value={volume} class="w-full" />
-		</div>
-
-		{#if playbackState === 'ended'}
+{#if playbackState === 'ended'}
 			<p class="text-gray-400">Session ended. Thanks for listening!</p>
 		{:else if playbackState !== 'playing'}
 			<p class="text-sm text-gray-400">Waiting for the host to start…</p>
