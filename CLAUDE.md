@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+useless text
+
 ## What this project is
 
 A Kahoot-style session-based "silent disco" web app for a therapy/wellness context. Riley (the host) creates a session; clients join on mobile browsers via a 6-character code. Each client picks a music genre and listens through their own headphones. Riley controls master play/pause for all clients simultaneously via Supabase Realtime.
