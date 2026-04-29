@@ -2,7 +2,7 @@
 Local download server — YouTube → MP3 in a local folder.
 Upload to the right genre via /admin on the web app.
 
-    cd ingestion
+    cd local_utils
     .\\venv\\Scripts\\activate
     uvicorn app:app --reload --port 8765
 
@@ -30,7 +30,7 @@ HTML = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Silent Disco — Download</title>
+<title>MT Toolkit - Local Download</title>
 <style>
   body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 0 16px; background:#111; color:#eee; }
   h1 { font-size: 1.4rem; margin-bottom: 8px; }
@@ -47,8 +47,8 @@ HTML = """<!DOCTYPE html>
 </style>
 </head>
 <body>
-<h1>Silent Disco — Download</h1>
-<p>Downloads MP3s to <code>ingestion/downloads/</code>. Then upload them to the right genre via /admin.</p>
+<h1>MT Toolkit - Local Download</h1>
+<p>Downloads MP3s to <code>local_utils/downloads/</code>. Then upload them to the right genre via /admin.</p>
 <form id="f">
   <label>YouTube URL or playlist</label>
   <input name="url" placeholder="https://youtube.com/playlist?list=..." required>
@@ -130,6 +130,6 @@ async def download(url: str = Form(...)):
                 break
             yield chunk
 
-        yield b"\nDone. Files are in ingestion/downloads/ \xe2\x80\x94 upload them via /admin.\n"
+        yield b"\nDone. Files are in local_utils/downloads/ - upload them via /admin.\n"
 
     return StreamingResponse(stream(), media_type="text/plain")

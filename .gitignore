@@ -19,6 +19,9 @@ Thumbs.db
 !.env.test
 
 # Python
+local_utils/venv/
+local_utils/__pycache__/
+local_utils/downloads/
 ingestion/venv/
 ingestion/__pycache__/
 *.pyc

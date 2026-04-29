@@ -1,5 +1,5 @@
 """
-Silent Disco ingestion script.
+MT Toolkit local utility for downloading audio and registering tracks.
 
 Usage:
     python ingest.py <genre_name> <youtube_url> [<youtube_url> ...]
@@ -10,7 +10,7 @@ Example:
 Requires:
     - ffmpeg on PATH
     - SUPABASE_URL and SUPABASE_SERVICE_KEY in environment (or .env file)
-    - venv activated: .\\venv\\Scripts\\activate
+    - venv activated from local_utils: .\\venv\\Scripts\\activate
 """
 
 import os
@@ -42,7 +42,7 @@ STORAGE_BUCKET = "tracks"
 
 if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
     print("Error: SUPABASE_URL and SUPABASE_SERVICE_KEY must be set.")
-    print("Create ingestion/.env with those two values.")
+    print("Create local_utils/.env with those two values.")
     sys.exit(1)
 
 HEADERS = {
@@ -185,7 +185,7 @@ def main():
             except Exception as e:
                 print(f"  Failed: {e}")
 
-    print("\nIngestion complete.")
+    print("\nLocal utility import complete.")
 
 
 if __name__ == "__main__":
