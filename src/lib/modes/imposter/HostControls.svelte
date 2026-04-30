@@ -79,7 +79,7 @@
 		participants = pData ?? [];
 		playlists = plData ?? [];
 
-		if (localPhase === 'playing' || localPhase === 'revealed') {
+		if (localPhase === 'playing' || localPhase === 'revealed' || _initialState === 'paused') {
 			await loadLatestRound();
 		}
 
@@ -129,6 +129,8 @@
 			imposterParticipantId = data.imposter_participant_id;
 			townPlaylistId = data.town_playlist_id;
 			imposterPlaylistId = data.imposter_playlist_id;
+			// Paused mid-round on reload — restore the playing phase
+			if (localPhase === 'lobby') localPhase = 'playing';
 		}
 	}
 
@@ -175,12 +177,12 @@
 			.select()
 			.single();
 
-		await supabase.from('sessions').update({ playback_state: 'playing' }).eq('id', session.id);
+		await supabase.from('sessions').update({ playback_state: 'paused' }).eq('id', session.id);
 
 		currentRound = inserted ?? null;
 		currentRoundNumber = nextRound;
 		imposterParticipantId = imposterId;
-		playbackState = 'playing';
+		playbackState = 'paused';
 		localPhase = 'playing';
 		starting = false;
 	}
