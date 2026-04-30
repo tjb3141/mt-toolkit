@@ -40,6 +40,8 @@ export const DELETE: RequestHandler = async ({ request, params }) => {
 	}
 
 	await admin.from('partners_pairs').update({ track_id: null }).eq('track_id', params.id);
+	await admin.from('imposter_rounds').update({ town_track_id: null }).eq('town_track_id', params.id);
+	await admin.from('imposter_rounds').update({ imposter_track_id: null }).eq('imposter_track_id', params.id);
 
 	const { error: err } = await admin.from('tracks').delete().eq('id', params.id);
 	if (err) throw error(500, err.message);

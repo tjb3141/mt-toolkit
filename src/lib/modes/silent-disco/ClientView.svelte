@@ -29,6 +29,13 @@
 	}
 
 	onMount(async () => {
+		const saved = sessionStorage.getItem(`participant:${session.id}`);
+		if (saved) {
+			const { id, n } = JSON.parse(saved);
+			participantId = id;
+			name = n;
+		}
+
 		const { data } = await supabase.from('playlists').select('id, name').order('display_order');
 		genres = data ?? [];
 
@@ -61,7 +68,10 @@
 			.select('id')
 			.single();
 		submittingName = false;
-		if (!error && data) participantId = data.id;
+		if (!error && data) {
+			participantId = data.id;
+			sessionStorage.setItem(`participant:${session.id}`, JSON.stringify({ id: data.id, n: name.trim() }));
+		}
 	}
 
 	async function selectGenre(genre: Genre) {

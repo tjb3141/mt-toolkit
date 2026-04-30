@@ -24,7 +24,21 @@
 		return `/api/audio/${trackId}?session=${session.id}`;
 	}
 
-	onMount(() => {
+	onMount(async () => {
+		const saved = sessionStorage.getItem(`participant:${session.id}`);
+		if (saved) {
+			const { id, n } = JSON.parse(saved);
+			participantId = id;
+			name = n;
+			const currentState = untrack(() => playbackState);
+			if (currentState === 'playing' || currentState === 'paused') {
+				await loadCurrentRound(id);
+			} else if (currentState === 'revealed') {
+				await loadRevealInfo();
+			}
+			subscribeToRounds();
+		}
+
 		channel = supabase
 			.channel(`imposter-client:${session.id}`)
 			.on(
@@ -70,6 +84,7 @@
 		submittingName = false;
 		if (!error && data) {
 			participantId = data.id;
+			sessionStorage.setItem(`participant:${session.id}`, JSON.stringify({ id: data.id, n: name.trim() }));
 			// Check if a round is already in progress
 			const currentState = untrack(() => playbackState);
 			if (currentState === 'playing' || currentState === 'revealed') {
@@ -90,7 +105,7 @@
 					table: 'imposter_rounds',
 					filter: `session_id=eq.${session.id}`
 				},
-				async (payload) => {
+				async (_payload) => {
 					// New round started — load our track assignment
 					const pid = untrack(() => participantId);
 					if (!pid) return;

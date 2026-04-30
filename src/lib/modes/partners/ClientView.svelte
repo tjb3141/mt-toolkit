@@ -24,7 +24,17 @@
 		return `/api/audio/${trackId}?session=${session.id}`;
 	}
 
-	onMount(() => {
+	onMount(async () => {
+		const saved = sessionStorage.getItem(`participant:${session.id}`);
+		if (saved) {
+			const { id, n } = JSON.parse(saved);
+			participantId = id;
+			name = n;
+			if (untrack(() => playbackState) === 'playing') {
+				await loadPair();
+			}
+		}
+
 		channel = supabase
 			.channel(`partners-client:${session.id}`)
 			.on(
@@ -57,6 +67,7 @@
 		submittingName = false;
 		if (!error && data) {
 			participantId = data.id;
+			sessionStorage.setItem(`participant:${session.id}`, JSON.stringify({ id: data.id, n: name.trim() }));
 			if (untrack(() => playbackState) === 'playing') {
 				await loadPair();
 			}
