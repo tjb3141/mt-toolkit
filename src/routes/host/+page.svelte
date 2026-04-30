@@ -42,9 +42,10 @@
 	}
 
 	function modeHelp(key: string) {
-		return key === 'partners'
-			? 'Pair people up by matching songs.'
-			: 'Everyone listens solo while you control play and pause.';
+		if (key === 'partners') return 'Pair people up by matching songs.';
+		if (key === 'imposter') return 'One person hears a different song — spot the odd one out.';
+		if (key === 'freeze_dance') return 'Dance when music plays, freeze when it stops.';
+		return 'Everyone listens solo while you control play and pause.';
 	}
 </script>
 
@@ -81,21 +82,45 @@
 			>
 				<input type="radio" bind:group={selectedMode} value={key} class="sr-only" />
 				<div class="icon-tile" aria-hidden="true">
-					{#if key === 'partners'}
+					{#if key === 'silent_disco'}
+						<!-- headphones -->
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="h-8 w-8">
+							<path d="M4 13a8 8 0 0 1 16 0" stroke-width="2.25" stroke-linecap="round" />
+							<path d="M5 13h3v6H5a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2Zm11 0h3a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-3v-6Z" stroke-width="2.25" stroke-linejoin="round" />
+						</svg>
+					{:else if key === 'partners'}
+						<!-- two people -->
 						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="h-8 w-8">
 							<path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke-width="2.25" />
 							<path d="M16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke-width="2.25" />
 							<path d="M3.5 20a4.5 4.5 0 0 1 9 0" stroke-width="2.25" stroke-linecap="round" />
 							<path d="M11.5 20a4.5 4.5 0 0 1 9 0" stroke-width="2.25" stroke-linecap="round" />
 						</svg>
-					{:else}
+					{:else if key === 'imposter'}
+						<!-- question mark person -->
 						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="h-8 w-8">
-							<path d="M4 13a8 8 0 0 1 16 0" stroke-width="2.25" stroke-linecap="round" />
-							<path
-								d="M5 13h3v6H5a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2Zm11 0h3a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-3v-6Z"
-								stroke-width="2.25"
-								stroke-linejoin="round"
-							/>
+							<circle cx="12" cy="8" r="3" stroke-width="2.25" />
+							<path d="M6 20a6 6 0 0 1 12 0" stroke-width="2.25" stroke-linecap="round" />
+							<path d="M12 13v.5" stroke-width="2.25" stroke-linecap="round" />
+							<circle cx="18" cy="6" r="4" fill="currentColor" stroke="none" class="text-zinc-900" />
+							<path d="M18 4.5c0-.8.6-1.5 1.5-1 .6.3.8 1 .4 1.6L18 6.5V7" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+							<circle cx="18" cy="8.5" r=".6" fill="white" />
+						</svg>
+					{:else if key === 'freeze_dance'}
+						<!-- ice cube / snowflake -->
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="h-8 w-8">
+							<line x1="12" y1="2" x2="12" y2="22" stroke-width="2.25" stroke-linecap="round" />
+							<line x1="2" y1="12" x2="22" y2="12" stroke-width="2.25" stroke-linecap="round" />
+							<line x1="4.93" y1="4.93" x2="19.07" y2="19.07" stroke-width="2.25" stroke-linecap="round" />
+							<line x1="19.07" y1="4.93" x2="4.93" y2="19.07" stroke-width="2.25" stroke-linecap="round" />
+							<line x1="12" y1="2" x2="9" y2="5" stroke-width="2.25" stroke-linecap="round" />
+							<line x1="12" y1="2" x2="15" y2="5" stroke-width="2.25" stroke-linecap="round" />
+							<line x1="12" y1="22" x2="9" y2="19" stroke-width="2.25" stroke-linecap="round" />
+							<line x1="12" y1="22" x2="15" y2="19" stroke-width="2.25" stroke-linecap="round" />
+							<line x1="2" y1="12" x2="5" y2="9" stroke-width="2.25" stroke-linecap="round" />
+							<line x1="2" y1="12" x2="5" y2="15" stroke-width="2.25" stroke-linecap="round" />
+							<line x1="22" y1="12" x2="19" y2="9" stroke-width="2.25" stroke-linecap="round" />
+							<line x1="22" y1="12" x2="19" y2="15" stroke-width="2.25" stroke-linecap="round" />
 						</svg>
 					{/if}
 				</div>
