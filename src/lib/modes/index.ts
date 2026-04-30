@@ -3,6 +3,8 @@ import SilentDiscoClientView from './silent-disco/ClientView.svelte';
 import SilentDiscoHostControls from './silent-disco/HostControls.svelte';
 import PartnersClientView from './partners/ClientView.svelte';
 import PartnersHostControls from './partners/HostControls.svelte';
+import ImposterClientView from './imposter/ClientView.svelte';
+import ImposterHostControls from './imposter/HostControls.svelte';
 
 export type Session = {
 	id: string;
@@ -31,5 +33,10 @@ export const modes: Record<string, ModeEntry> = {
 		label: 'Partners',
 		ClientView: PartnersClientView,
 		HostControls: PartnersHostControls
+	},
+	imposter: {
+		label: 'Imposter',
+		ClientView: ImposterClientView,
+		HostControls: ImposterHostControls
 	}
 };
