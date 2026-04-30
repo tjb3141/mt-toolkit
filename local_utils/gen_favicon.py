@@ -10,7 +10,7 @@ with sync_playwright() as p:
     page = browser.new_page(viewport={"width": 512, "height": 512})
     page.set_content(html)
     page.wait_for_timeout(300)
-    page.screenshot(path=out, clip={"x": 0, "y": 0, "width": 512, "height": 512})
+    page.screenshot(path=out, clip={"x": 0, "y": 0, "width": 512, "height": 512}, omit_background=True)
     browser.close()
 
 print("done:", out)
