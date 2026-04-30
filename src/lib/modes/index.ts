@@ -5,6 +5,8 @@ import PartnersClientView from './partners/ClientView.svelte';
 import PartnersHostControls from './partners/HostControls.svelte';
 import ImposterClientView from './imposter/ClientView.svelte';
 import ImposterHostControls from './imposter/HostControls.svelte';
+import FreezeDanceClientView from './freeze-dance/ClientView.svelte';
+import FreezeDanceHostControls from './freeze-dance/HostControls.svelte';
 
 export type Session = {
 	id: string;
@@ -38,5 +40,10 @@ export const modes: Record<string, ModeEntry> = {
 		label: 'Imposter',
 		ClientView: ImposterClientView,
 		HostControls: ImposterHostControls
+	},
+	freeze_dance: {
+		label: 'Freeze Dance',
+		ClientView: FreezeDanceClientView,
+		HostControls: FreezeDanceHostControls
 	}
 };
