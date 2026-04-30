@@ -35,6 +35,10 @@
 					playbackState = newState;
 					if (!audioEl) return;
 					if (newState === 'playing') {
+						const pid = untrack(() => participantId);
+						if (pid && !untrack(() => assignedTrackId)) {
+							await loadCurrentRound(pid);
+						}
 						audioEl.play().catch(() => {});
 					} else if (newState === 'paused') {
 						audioEl.pause();
