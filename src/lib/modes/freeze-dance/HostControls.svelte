@@ -119,12 +119,21 @@
 	async function loadCurrentRoundState() {
 		const { data: round } = await supabase
 			.from('freeze_dance_rounds')
-			.select('round')
+			.select('round, track_id')
 			.eq('session_id', session.id)
 			.order('round', { ascending: false })
 			.limit(1)
 			.maybeSingle();
-		if (round) currentRound = round.round;
+		if (round) {
+			currentRound = round.round;
+			// Restore playlist selection so "Next Round" pre-selects the same playlist
+			const { data: track } = await supabase
+				.from('tracks')
+				.select('playlist_id')
+				.eq('id', round.track_id)
+				.single();
+			if (track?.playlist_id) selectedPlaylistId = track.playlist_id;
+		}
 
 		await reloadEliminations();
 	}
@@ -151,17 +160,17 @@
 
 		const nextRound = currentRound + 1;
 
+		// Clear eliminations before inserting new round so clients don't see a stale state
+		await supabase.from('freeze_dance_eliminations').delete().eq('session_id', session.id);
+
 		await supabase.from('freeze_dance_rounds').insert({
 			session_id: session.id,
 			round: nextRound,
 			track_id: track.id
 		});
 
-		// Delete all eliminations for this session (round reset)
-		await supabase
-			.from('freeze_dance_eliminations')
-			.delete()
-			.eq('session_id', session.id);
+		// Write paused to session so clients receive the realtime signal and load the new round
+		await supabase.from('sessions').update({ playback_state: 'paused' }).eq('id', session.id);
 
 		eliminatedIds = new Set();
 		currentRound = nextRound;
