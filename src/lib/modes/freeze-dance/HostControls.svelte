@@ -13,13 +13,9 @@
 
 	const _initialState = untrack(() => session.playback_state);
 	type Phase = 'lobby' | 'setup' | 'playing' | 'ended';
-	let localPhase = $state<Phase>(
-		_initialState === 'playing' || _initialState === 'paused'
-			? 'playing'
-			: _initialState === 'ended'
-				? 'ended'
-				: 'lobby'
-	);
+	// Only skip lobby if there's an active round — determined after loadCurrentRoundState runs.
+	// A fresh session starts paused with no rounds, so always start at lobby.
+	let localPhase = $state<Phase>(_initialState === 'ended' ? 'ended' : 'lobby');
 
 	let qrDataUrl = $state('');
 	let participants = $state<Participant[]>([]);
@@ -60,9 +56,7 @@
 		participants = pData ?? [];
 		playlists = plData ?? [];
 
-		if (localPhase === 'playing') {
-			await loadCurrentRoundState();
-		}
+		await loadCurrentRoundState();
 
 		channel = supabase
 			.channel(`freeze-host:${session.id}`)
@@ -133,6 +127,8 @@
 				.eq('id', round.track_id)
 				.single();
 			if (track?.playlist_id) selectedPlaylistId = track.playlist_id;
+			// Resume into playing phase (mid-session reload)
+			localPhase = 'playing';
 		}
 
 		await reloadEliminations();
