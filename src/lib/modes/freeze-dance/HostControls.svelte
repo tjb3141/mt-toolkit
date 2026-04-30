@@ -270,11 +270,9 @@
 		<div class="flex items-start justify-between gap-4">
 			<div>
 				<p class="music-kicker">Freeze Dance Host</p>
-				{#if currentRound > 0}
-					<p class="text-xs text-zinc-500">Starting round {currentRound + 1}</p>
-				{:else}
-					<h2 class="stage-title mt-2 text-4xl font-black">Pick a playlist</h2>
-				{/if}
+				<h2 class="stage-title mt-2 text-4xl font-black">
+					{currentRound > 0 ? `Round ${currentRound + 1}` : 'Pick a playlist'}
+				</h2>
 			</div>
 			<HomeButton class="shrink-0" />
 		</div>
@@ -319,16 +317,15 @@
 		<div class="flex w-full items-center justify-between gap-4">
 			<div>
 				<p class="music-kicker">Freeze Dance Host</p>
-				<p class="text-xs text-zinc-500">Round {currentRound}</p>
+				<p class="mt-1 text-xs text-zinc-500">Round {currentRound}</p>
 			</div>
 			<HomeButton class="shrink-0" />
 		</div>
 
-		<!-- Play/Pause -->
-		<div class="flex flex-col items-center gap-3">
+		<div class="flex flex-col items-center gap-4">
 			<button
 				onclick={togglePlayback}
-				class="grid h-36 w-36 place-items-center rounded-full text-2xl font-black text-white shadow-2xl transition-all active:scale-95 {playbackState ===
+				class="grid h-44 w-44 place-items-center rounded-full text-3xl font-black text-white shadow-2xl transition-all active:scale-95 {playbackState ===
 				'playing'
 					? 'bg-red-500 shadow-red-950 hover:bg-red-400'
 					: 'bg-emerald-500 shadow-emerald-950 hover:bg-emerald-400'}"
@@ -337,10 +334,11 @@
 			</button>
 			{#if playbackState === 'paused'}
 				<p class="text-sm font-semibold text-red-400">Music stopped — mark anyone who moved</p>
+			{:else}
+				<p class="text-sm font-semibold text-emerald-400">Music playing</p>
 			{/if}
 		</div>
 
-		<!-- Active participants -->
 		<div class="music-panel w-full rounded-2xl p-5">
 			<div class="mb-3 flex items-center justify-between">
 				<p class="music-kicker">Still in ({activeParticipants.length})</p>
@@ -353,7 +351,6 @@
 					</button>
 				{/if}
 			</div>
-
 			{#if activeParticipants.length === 0}
 				<p class="text-sm text-zinc-400">No active players.</p>
 			{:else}
@@ -375,7 +372,6 @@
 			{/if}
 		</div>
 
-		<!-- Eliminated participants -->
 		{#if eliminatedParticipants.length > 0}
 			<div class="music-panel w-full rounded-2xl p-5">
 				<p class="music-kicker mb-3 text-zinc-500">Out ({eliminatedParticipants.length})</p>
@@ -390,7 +386,7 @@
 			</div>
 		{/if}
 
-		<div class="flex flex-col gap-3">
+		<div class="mt-auto flex flex-col gap-3">
 			<button
 				onclick={nextRound}
 				class="w-full rounded-2xl bg-cyan-600 py-4 text-lg font-black text-white transition-colors hover:bg-cyan-500 active:scale-95"
