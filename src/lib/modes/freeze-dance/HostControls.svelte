@@ -24,6 +24,7 @@
 
 	let selectedPlaylistId = $state<string | null>(null);
 	let currentRound = $state(0);
+	let currentTrackTitle = $state<string | null>(null);
 	let playbackState = $state(untrack(() => session.playback_state));
 	let starting = $state(false);
 
@@ -123,10 +124,11 @@
 			// Restore playlist selection so "Next Round" pre-selects the same playlist
 			const { data: track } = await supabase
 				.from('tracks')
-				.select('playlist_id')
+				.select('title, playlist_id')
 				.eq('id', round.track_id)
 				.single();
 			if (track?.playlist_id) selectedPlaylistId = track.playlist_id;
+			if (track?.title) currentTrackTitle = track.title;
 			// Resume into playing phase (mid-session reload)
 			localPhase = 'playing';
 		}
@@ -148,11 +150,12 @@
 
 		const { data: trackRows } = await supabase
 			.from('tracks')
-			.select('id')
+			.select('id, title')
 			.eq('playlist_id', selectedPlaylistId);
 
 		const track = shuffle(trackRows ?? [])[0];
 		if (!track) { starting = false; return; }
+		currentTrackTitle = track.title;
 
 		const nextRound = currentRound + 1;
 
@@ -236,7 +239,7 @@
 			</div>
 		{/if}
 
-		<p class="max-w-sm text-center text-xs break-all text-zinc-400">{joinUrl}</p>
+		<p class="w-full text-center text-xs break-all text-zinc-400">{joinUrl}</p>
 
 		<div class="music-panel w-full rounded-2xl p-5">
 			<p class="music-kicker mb-3">Participants ({participants.length})</p>
@@ -263,6 +266,12 @@
 				Waiting for participants...
 			</p>
 		{/if}
+		<button
+			onclick={endSession}
+			class="text-sm text-zinc-600 underline underline-offset-4 hover:text-zinc-400"
+		>
+			End session
+		</button>
 	</div>
 
 {:else if localPhase === 'setup'}
@@ -295,19 +304,27 @@
 			</div>
 		</div>
 
-		<div class="mt-auto flex gap-3">
+		<div class="mt-auto flex flex-col gap-3">
+			<div class="flex gap-3">
+				<button
+					onclick={() => (localPhase = currentRound > 0 ? 'playing' : 'lobby')}
+					class="music-panel flex-1 rounded-2xl py-4 font-bold transition hover:border-white/25"
+				>
+					Back
+				</button>
+				<button
+					onclick={startRound}
+					disabled={starting || !selectedPlaylistId}
+					class="flex-1 rounded-2xl bg-emerald-600 py-4 text-lg font-black text-white transition-colors hover:bg-emerald-500 disabled:opacity-30"
+				>
+					{starting ? 'Starting...' : currentRound > 0 ? 'Start Next Round' : 'Start Round'}
+				</button>
+			</div>
 			<button
-				onclick={() => (localPhase = currentRound > 0 ? 'playing' : 'lobby')}
-				class="music-panel flex-1 rounded-2xl py-4 font-bold transition hover:border-white/25"
+				onclick={endSession}
+				class="text-sm text-zinc-600 underline underline-offset-4 hover:text-zinc-400"
 			>
-				Back
-			</button>
-			<button
-				onclick={startRound}
-				disabled={starting || !selectedPlaylistId}
-				class="flex-1 rounded-2xl bg-emerald-600 py-4 text-lg font-black text-white transition-colors hover:bg-emerald-500 disabled:opacity-30"
-			>
-				{starting ? 'Starting...' : currentRound > 0 ? 'Start Next Round' : 'Start Round'}
+				End session
 			</button>
 		</div>
 	</div>
@@ -322,38 +339,45 @@
 			<HomeButton class="shrink-0" />
 		</div>
 
-		<div class="flex flex-col items-center gap-4">
-			<button
-				onclick={togglePlayback}
-				class="grid h-44 w-44 place-items-center rounded-full text-3xl font-black text-white shadow-2xl transition-all active:scale-95 {playbackState ===
-				'playing'
-					? 'bg-red-500 shadow-red-950 hover:bg-red-400'
-					: 'bg-emerald-500 shadow-emerald-950 hover:bg-emerald-400'}"
-			>
-				{playbackState === 'playing' ? 'Pause' : 'Play'}
-			</button>
-			{#if playbackState === 'paused'}
-				<p class="text-sm font-semibold text-red-400">Music stopped — mark anyone who moved</p>
-			{:else}
-				<p class="text-sm font-semibold text-emerald-400">Music playing</p>
-			{/if}
-		</div>
-
-		<div class="music-panel w-full rounded-2xl p-5">
-			<div class="mb-3 flex items-center justify-between">
-				<p class="music-kicker">Still in ({activeParticipants.length})</p>
-				{#if playbackState === 'paused' && eliminatedIds.size > 0}
-					<button
-						onclick={restoreAll}
-						class="text-xs text-zinc-500 underline underline-offset-4 hover:text-zinc-300"
-					>
-						Restore all
-					</button>
+		{#if activeParticipants.length === 1}
+			<div class="music-panel-strong w-full rounded-2xl p-6 text-center">
+				<p class="music-kicker text-yellow-300">Winner!</p>
+				<p class="stage-title mt-2 text-5xl font-black">{activeParticipants[0].name}</p>
+				<p class="mt-3 text-zinc-400">Last one standing</p>
+			</div>
+		{:else}
+			<div class="flex flex-col items-center gap-4">
+				<button
+					onclick={togglePlayback}
+					class="grid h-44 w-44 place-items-center rounded-full text-3xl font-black text-white shadow-2xl transition-all active:scale-95 {playbackState ===
+					'playing'
+						? 'bg-red-500 shadow-red-950 hover:bg-red-400'
+						: 'bg-emerald-500 shadow-emerald-950 hover:bg-emerald-400'}"
+				>
+					{playbackState === 'playing' ? 'Pause' : 'Play'}
+				</button>
+				{#if playbackState === 'paused'}
+					<p class="text-sm font-semibold text-red-400">Music stopped — mark anyone who moved</p>
+				{:else}
+					<p class="text-sm font-semibold text-emerald-400">Music playing</p>
+				{/if}
+				{#if currentTrackTitle}
+					<p class="text-sm text-zinc-400">{currentTrackTitle}</p>
 				{/if}
 			</div>
-			{#if activeParticipants.length === 0}
-				<p class="text-sm text-zinc-400">No active players.</p>
-			{:else}
+
+			<div class="music-panel w-full rounded-2xl p-5">
+				<div class="mb-3 flex items-center justify-between">
+					<p class="music-kicker">Still in ({activeParticipants.length})</p>
+					{#if playbackState === 'paused' && eliminatedIds.size > 0}
+						<button
+							onclick={restoreAll}
+							class="text-xs text-zinc-500 underline underline-offset-4 hover:text-zinc-300"
+						>
+							Restore all
+						</button>
+					{/if}
+				</div>
 				<ul class="flex flex-col gap-2">
 					{#each activeParticipants as p (p.id)}
 						<li class="flex items-center justify-between rounded-xl bg-white/5 px-5 py-4">
@@ -369,8 +393,8 @@
 						</li>
 					{/each}
 				</ul>
-			{/if}
-		</div>
+			</div>
+		{/if}
 
 		{#if eliminatedParticipants.length > 0}
 			<div class="music-panel w-full rounded-2xl p-5">
