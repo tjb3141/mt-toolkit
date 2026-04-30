@@ -33,8 +33,8 @@
 			color: { dark: '#ffffff', light: '#18181b' }
 		});
 
-		const { data: genreData } = await supabase.from('genres').select('id, name');
-		genreMap = Object.fromEntries((genreData ?? []).map((g) => [g.id, g.name]));
+		const { data: playlistData } = await supabase.from('playlists').select('id, name');
+		genreMap = Object.fromEntries((playlistData ?? []).map((g) => [g.id, g.name]));
 
 		const { data } = await supabase
 			.from('participants')

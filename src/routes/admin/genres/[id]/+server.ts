@@ -18,7 +18,7 @@ export const PATCH: RequestHandler = async ({ request, params }) => {
 	const { name } = await request.json();
 	if (!name?.trim()) throw error(400, 'name required');
 
-	const { error: err } = await adminClient().from('genres').update({ name: name.trim() }).eq('id', params.id);
+	const { error: err } = await adminClient().from('playlists').update({ name: name.trim() }).eq('id', params.id);
 	if (err) throw error(500, err.message);
 
 	return json({ ok: true });
@@ -32,7 +32,7 @@ export const DELETE: RequestHandler = async ({ request, params }) => {
 	const { data: tracks } = await admin
 		.from('tracks')
 		.select('id, storage_path')
-		.eq('genre_id', params.id);
+		.eq('playlist_id', params.id);
 
 	if (tracks && tracks.length > 0) {
 		const trackIds = tracks.map((t) => t.id);
@@ -40,9 +40,9 @@ export const DELETE: RequestHandler = async ({ request, params }) => {
 		await admin.storage.from('tracks').remove(tracks.map((t) => t.storage_path));
 	}
 
-	await admin.from('participants').update({ genre_id: null }).eq('genre_id', params.id);
+	await admin.from('participants').update({ playlist_id: null }).eq('playlist_id', params.id);
 
-	const { error: err } = await admin.from('genres').delete().eq('id', params.id);
+	const { error: err } = await admin.from('playlists').delete().eq('id', params.id);
 	if (err) throw error(500, err.message);
 
 	return json({ ok: true });

@@ -13,7 +13,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	if (!name?.trim()) throw error(400, 'name required');
 
 	const { data, error: err } = await admin
-		.from('genres')
+		.from('playlists')
 		.insert({ name: name.trim(), display_order: 0 })
 		.select('id, name, display_order')
 		.single();

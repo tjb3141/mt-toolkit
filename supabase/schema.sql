@@ -8,8 +8,8 @@ create table sessions (
   expires_at timestamptz not null default now() + interval '2 hours'
 );
 
--- Genres: curated by Riley, static config
-create table genres (
+-- Playlists: curated by Riley, static config
+create table playlists (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   display_order integer not null default 0
@@ -18,22 +18,22 @@ create table genres (
 -- Tracks: populated by local utility scripts and the admin UI
 create table tracks (
   id uuid primary key default gen_random_uuid(),
-  genre_id uuid not null references genres(id) on delete cascade,
+  playlist_id uuid not null references playlists(id) on delete cascade,
   title text not null,
   storage_path text not null,
   duration_seconds integer
 );
 
--- Allow anyone to read sessions, genres, and tracks (clients join without auth)
+-- Allow anyone to read sessions, playlists, and tracks (clients join without auth)
 alter table sessions enable row level security;
-alter table genres enable row level security;
+alter table playlists enable row level security;
 alter table tracks enable row level security;
 
 create policy "sessions readable by all" on sessions for select using (true);
 create policy "sessions insertable by all" on sessions for insert with check (true);
 create policy "sessions updatable by all" on sessions for update using (true);
 
-create policy "genres readable by all" on genres for select using (true);
+create policy "playlists readable by all" on playlists for select using (true);
 
 create policy "tracks readable by all" on tracks for select using (true);
 
@@ -48,7 +48,7 @@ create table participants (
   id uuid primary key default gen_random_uuid(),
   session_id uuid not null references sessions(id) on delete cascade,
   name text not null,
-  genre_id uuid references genres(id),
+  playlist_id uuid references playlists(id),
   joined_at timestamptz not null default now()
 );
 
