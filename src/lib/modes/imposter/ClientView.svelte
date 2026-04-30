@@ -15,6 +15,7 @@
 	// Set after round starts — server pushes track via imposter_rounds realtime
 	let assignedTrackId = $state<string | null>(null);
 	let assignedTrackTitle = $state<string | null>(null);
+	let isImposter = $state<boolean | null>(null);
 	let imposterName = $state<string | null>(null); // revealed at 'revealed' phase
 
 	let channel: RealtimeChannel | null = null;
@@ -130,8 +131,8 @@
 
 		if (!round) return;
 
-		const isImposter = round.imposter_participant_id === pid;
-		const trackId = isImposter ? round.imposter_track_id : round.town_track_id;
+		const roleIsImposter = round.imposter_participant_id === pid;
+		const trackId = roleIsImposter ? round.imposter_track_id : round.town_track_id;
 
 		if (!trackId) return;
 
@@ -141,6 +142,7 @@
 			.eq('id', trackId)
 			.single();
 
+		isImposter = roleIsImposter;
 		if (track) {
 			assignedTrackId = track.id;
 			assignedTrackTitle = track.title;
@@ -206,10 +208,11 @@
 		</form>
 	</div>
 
-{:else if playbackState === 'paused'}
+{:else if playbackState === 'paused' && !assignedTrackId}
 	<div
 		class="stage-shell mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-6 px-5 py-8 text-center"
 	>
+		<audio bind:this={audioEl} loop></audio>
 		<div class="music-panel-strong rounded-2xl p-6">
 			<p class="music-kicker mb-3">MT Toolkit</p>
 			<p class="stage-title text-4xl font-black">Hi, {name}!</p>
@@ -220,7 +223,7 @@
 		</div>
 	</div>
 
-{:else if playbackState === 'playing'}
+{:else if playbackState === 'playing' || (playbackState === 'paused' && assignedTrackId)}
 	<div
 		class="stage-shell mx-auto flex min-h-screen w-full max-w-md flex-col justify-between gap-8 px-5 py-8"
 	>
@@ -229,12 +232,30 @@
 		</div>
 
 		<div class="music-panel-strong rounded-2xl p-6 text-center">
-			<p class="music-kicker text-emerald-300">Now playing</p>
+			{#if playbackState === 'playing'}
+				<p class="music-kicker text-emerald-300">Now playing</p>
+			{:else}
+				<p class="music-kicker text-zinc-500">Paused</p>
+			{/if}
 			<p class="stage-title mt-3 text-3xl leading-tight font-black">
 				{assignedTrackTitle ?? 'Loading...'}
 			</p>
 			<p class="mt-4 text-zinc-400">Listen through your headphones.</p>
 		</div>
+
+		{#if isImposter !== null}
+			<div class="text-center">
+				{#if isImposter}
+					<span class="rounded-full bg-red-900/60 px-5 py-2 text-sm font-bold text-red-300">
+						You are the Imposter
+					</span>
+				{:else}
+					<span class="rounded-full bg-zinc-800 px-5 py-2 text-sm font-bold text-zinc-300">
+						You are a Townsperson
+					</span>
+				{/if}
+			</div>
+		{/if}
 
 		<audio bind:this={audioEl} loop></audio>
 
@@ -267,7 +288,6 @@
 	<div
 		class="stage-shell flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center"
 	>
-		<audio bind:this={audioEl}></audio>
 		<p class="music-kicker">MT Toolkit</p>
 		<p class="stage-title text-3xl font-black">Session ended</p>
 		<p class="text-zinc-400">Thanks for playing!</p>
