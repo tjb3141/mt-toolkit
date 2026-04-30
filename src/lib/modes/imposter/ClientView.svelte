@@ -86,9 +86,9 @@
 		if (!error && data) {
 			participantId = data.id;
 			sessionStorage.setItem(`participant:${session.id}`, JSON.stringify({ id: data.id, n: name.trim() }));
-			// Check if a round is already in progress
+			// Check if a round is already in progress (including paused mid-round)
 			const currentState = untrack(() => playbackState);
-			if (currentState === 'playing' || currentState === 'revealed') {
+			if (currentState === 'playing' || currentState === 'paused' || currentState === 'revealed') {
 				await loadCurrentRound(data.id);
 			}
 			subscribeToRounds();
@@ -127,7 +127,7 @@
 			.eq('session_id', session.id)
 			.order('round', { ascending: false })
 			.limit(1)
-			.single();
+			.maybeSingle();
 
 		if (!round) return;
 
