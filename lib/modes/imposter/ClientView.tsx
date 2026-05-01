@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, Pressable } from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useParticipant } from '@/hooks/useParticipant';
 import { useAudioPlayer } from '@/hooks/useAudioPlayer';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { useLatest } from '@/hooks/useLatest';
+import { Screen, Shell, Panel, PanelStrong, Kicker, GlowButton, EqBars, StyledInput } from '@/components/ui';
 import type { ModeProps } from '@/lib/modes';
 
 export default function ImposterClientView({ session }: ModeProps) {
@@ -15,205 +16,185 @@ export default function ImposterClientView({ session }: ModeProps) {
   const [isImposter, setIsImposter] = useState<boolean | null>(null);
   const [imposterName, setImposterName] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [nameInput, setNameInput] = useState('');
+  const [nameValue, setNameValue] = useState('');
 
   const playbackStateRef = useLatest(playbackState);
   const participantIdRef = useLatest(participantId);
   const assignedTrackIdRef = useLatest(assignedTrackId);
   const { loadTrack, play, pause } = useAudioPlayer({ loop: true });
 
-  // Subscribe to session updates
   useRealtimeTable(`imposter-client:${session.id}`, [
-    {
-      event: 'UPDATE', table: 'sessions', filter: `id=eq.${session.id}`,
-      onPayload: async (payload) => {
-        const newState = payload.new.playback_state;
-        setPlaybackState(newState);
-        if (newState === 'playing') {
-          const pid = participantIdRef.current;
-          if (pid && !assignedTrackIdRef.current) await loadCurrentRound(pid);
-          play();
-        } else if (newState === 'paused') {
-          pause();
-        } else {
-          pause();
-          if (newState === 'revealed') await loadRevealInfo();
-        }
-      },
-    },
+    { event: 'UPDATE', table: 'sessions', filter: `id=eq.${session.id}`, onPayload: async (payload) => {
+      const newState = payload.new.playback_state;
+      setPlaybackState(newState);
+      if (newState === 'playing') {
+        const pid = participantIdRef.current;
+        if (pid && !assignedTrackIdRef.current) await loadCurrentRound(pid);
+        play();
+      } else if (newState === 'paused') {
+        pause();
+      } else {
+        pause();
+        if (newState === 'revealed') await loadRevealInfo();
+      }
+    }},
   ], !!participantId);
 
-  // Subscribe to new rounds
   useRealtimeTable(`imposter-rounds:${session.id}`, [
-    {
-      event: 'INSERT', table: 'imposter_rounds', filter: `session_id=eq.${session.id}`,
-      onPayload: async () => {
-        const pid = participantIdRef.current;
-        if (!pid) return;
-        // Reset state for new round
-        setAssignedTrackId(null);
-        setAssignedTrackTitle(null);
-        setIsImposter(null);
-        await loadCurrentRound(pid);
-        if (playbackStateRef.current === 'playing') play();
-      },
-    },
+    { event: 'INSERT', table: 'imposter_rounds', filter: `session_id=eq.${session.id}`, onPayload: async () => {
+      const pid = participantIdRef.current;
+      if (!pid) return;
+      setAssignedTrackId(null); setAssignedTrackTitle(null); setIsImposter(null);
+      await loadCurrentRound(pid);
+      if (playbackStateRef.current === 'playing') play();
+    }},
   ], !!participantId);
 
   useEffect(() => {
-    if (participantId && (playbackState === 'playing' || playbackState === 'paused')) {
-      loadCurrentRound(participantId);
-    } else if (participantId && playbackState === 'revealed') {
-      loadRevealInfo();
-    }
+    if (participantId && (playbackState === 'playing' || playbackState === 'paused')) loadCurrentRound(participantId);
+    else if (participantId && playbackState === 'revealed') loadRevealInfo();
   }, [participantId]);
 
-  // Load audio when track changes
   useEffect(() => {
     if (!assignedTrackId) return;
-    loadTrack(assignedTrackId, session.id).then(() => {
-      if (playbackStateRef.current === 'playing') play();
-    });
+    loadTrack(assignedTrackId, session.id).then(() => { if (playbackStateRef.current === 'playing') play(); });
   }, [assignedTrackId]);
 
   async function loadCurrentRound(pid: string) {
-    const { data: round } = await supabase
-      .from('imposter_rounds')
-      .select('town_track_id, imposter_track_id, imposter_participant_id')
-      .eq('session_id', session.id)
-      .order('round', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const { data: round } = await supabase.from('imposter_rounds').select('town_track_id, imposter_track_id, imposter_participant_id').eq('session_id', session.id).order('round', { ascending: false }).limit(1).maybeSingle();
     if (!round) return;
-
     const roleIsImposter = round.imposter_participant_id === pid;
     const trackId = roleIsImposter ? round.imposter_track_id : round.town_track_id;
     if (!trackId) return;
-
     const { data: track } = await supabase.from('tracks').select('id, title').eq('id', trackId).single();
     setIsImposter(roleIsImposter);
-    if (track) {
-      setAssignedTrackId(track.id);
-      setAssignedTrackTitle(track.title);
-    }
+    if (track) { setAssignedTrackId(track.id); setAssignedTrackTitle(track.title); }
   }
 
   async function loadRevealInfo() {
-    const { data: round } = await supabase
-      .from('imposter_rounds')
-      .select('imposter_participant_id')
-      .eq('session_id', session.id)
-      .order('round', { ascending: false })
-      .limit(1)
-      .single();
+    const { data: round } = await supabase.from('imposter_rounds').select('imposter_participant_id').eq('session_id', session.id).order('round', { ascending: false }).limit(1).single();
     if (!round) return;
     const { data: p } = await supabase.from('participants').select('name').eq('id', round.imposter_participant_id).single();
     if (p) setImposterName(p.name);
   }
 
   async function handleJoin() {
-    if (!nameInput.trim()) return;
+    if (!nameValue.trim()) return;
     setSubmitting(true);
-    const ok = await join(nameInput);
+    await join(nameValue);
     setSubmitting(false);
   }
 
   if (participantLoading) return null;
 
-  // Name entry
   if (!participantId) {
     return (
-      <View className="stage-shell mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-6 px-5 py-8">
-        <View className="music-panel-strong rounded-2xl p-6 items-center">
-          <View className="record-mark mx-auto mb-6" />
-          <Text className="music-kicker mb-2">MT Toolkit</Text>
-          <Text className="stage-title text-4xl font-black text-white text-center">What's your name?</Text>
-        </View>
-        <View className="music-panel rounded-2xl p-5 gap-4">
-          <TextInput value={nameInput} onChangeText={setNameInput} placeholder="Your name" placeholderTextColor="#52525b" maxLength={32} autoFocus onSubmitEditing={handleJoin} className="w-full rounded-xl border-2 border-white/10 bg-black/30 px-6 py-4 text-center text-2xl font-bold text-white focus:border-cyan-300" />
-          <Pressable onPress={handleJoin} disabled={submitting || !nameInput.trim()} className={`primary-glow w-full rounded-xl py-4 items-center ${!nameInput.trim() || submitting ? 'opacity-30' : ''}`}>
-            <Text className="text-lg font-black text-white">{submitting ? 'Joining...' : "Let's go"}</Text>
-          </Pressable>
-        </View>
-      </View>
+      <Screen>
+        <Shell style={{ justifyContent: 'center' }}>
+          <PanelStrong style={{ alignItems: 'center', paddingVertical: 32 }}>
+            <Text style={s.emoji}>🕵️</Text>
+            <Kicker>MT Toolkit</Kicker>
+            <Text style={s.bigTitle}>What's your name?</Text>
+          </PanelStrong>
+          <Panel style={{ gap: 12 }}>
+            <StyledInput value={nameValue} onChangeText={setNameValue} placeholder="Your name" maxLength={32} autoFocus onSubmitEditing={handleJoin} />
+            <GlowButton onPress={handleJoin} disabled={submitting || !nameValue.trim()}>
+              <Text style={s.btnText}>{submitting ? 'Joining…' : "Let's go"}</Text>
+            </GlowButton>
+          </Panel>
+        </Shell>
+      </Screen>
     );
   }
 
-  // Waiting
   if (playbackState === 'paused' && !assignedTrackId) {
     return (
-      <View className="stage-shell mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-6 px-5 py-8">
-        <View className="music-panel-strong rounded-2xl p-6 items-center">
-          <Text className="music-kicker mb-3">MT Toolkit</Text>
-          <Text className="stage-title text-4xl font-black text-white">Hi, {name}!</Text>
-          <Text className="mt-3 text-lg text-zinc-300 text-center">Waiting for the host to start...</Text>
-        </View>
-        <View className="equalizer"><View /><View /><View /><View /><View /></View>
-      </View>
+      <Screen>
+        <Shell style={{ justifyContent: 'center', alignItems: 'center', gap: 24 }}>
+          <PanelStrong style={{ alignItems: 'center', width: '100%' }}>
+            <Kicker>MT Toolkit</Kicker>
+            <Text style={s.bigTitle}>Hi, {name}!</Text>
+            <Text style={{ color: '#a1a1aa', fontSize: 16, marginTop: 8, textAlign: 'center' }}>Waiting for the host to start…</Text>
+          </PanelStrong>
+          <EqBars />
+        </Shell>
+      </Screen>
     );
   }
 
-  // Playing
   if (playbackState === 'playing' || (playbackState === 'paused' && assignedTrackId)) {
+    const isPlaying = playbackState === 'playing';
     return (
-      <View className="stage-shell mx-auto flex min-h-screen w-full max-w-md flex-col justify-between gap-8 px-5 py-8">
-        <Text className="music-kicker">MT Toolkit</Text>
-        <View className="music-panel-strong rounded-2xl p-6 items-center">
-          {playbackState === 'playing' ? (
-            <Text className="music-kicker text-emerald-300">Now playing</Text>
-          ) : (
-            <Text className="music-kicker text-zinc-500">Paused</Text>
+      <Screen>
+        <Shell style={{ justifyContent: 'space-between' }}>
+          <Kicker>MT Toolkit</Kicker>
+
+          <PanelStrong style={{ alignItems: 'center' }}>
+            <Kicker style={{ color: isPlaying ? '#34d399' : '#71717a' }}>
+              {isPlaying ? 'Now playing' : 'Paused'}
+            </Kicker>
+            <Text style={s.trackTitle}>{assignedTrackTitle ?? 'Loading…'}</Text>
+            <Text style={{ color: '#71717a', marginTop: 8 }}>Listen through your headphones.</Text>
+          </PanelStrong>
+
+          {isImposter !== null && (
+            <View style={{ alignItems: 'center' }}>
+              <View style={isImposter ? s.imposterBadge : s.townBadge}>
+                <Text style={isImposter ? s.imposterText : s.townText}>
+                  {isImposter ? '🕵️ You are the Imposter' : '🏘 You are a Townsperson'}
+                </Text>
+              </View>
+            </View>
           )}
-          <Text className="stage-title mt-3 text-3xl leading-tight font-black text-white text-center">
-            {assignedTrackTitle ?? 'Loading...'}
-          </Text>
-          <Text className="mt-4 text-zinc-400">Listen through your headphones.</Text>
-        </View>
-        {isImposter !== null && (
-          <View className="items-center">
-            {isImposter ? (
-              <View className="rounded-full bg-red-900/60 px-5 py-2">
-                <Text className="text-sm font-bold text-red-300">You are the Imposter</Text>
-              </View>
-            ) : (
-              <View className="rounded-full bg-zinc-800 px-5 py-2">
-                <Text className="text-sm font-bold text-zinc-300">You are a Townsperson</Text>
-              </View>
-            )}
-          </View>
-        )}
-        <View className="music-panel rounded-2xl p-5">
-          <Text className="text-sm text-zinc-300 text-center">Watch the room. Is everyone moving to the same beat?</Text>
-        </View>
-      </View>
+
+          <Panel>
+            <Text style={{ color: '#a1a1aa', fontSize: 14, textAlign: 'center' }}>
+              Watch the room. Is everyone moving to the same beat?
+            </Text>
+          </Panel>
+        </Shell>
+      </Screen>
     );
   }
 
-  // Revealed
   if (playbackState === 'revealed') {
     return (
-      <View className="stage-shell mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-6 px-5 py-8">
-        {imposterName ? (
-          <View className="music-panel-strong rounded-2xl p-8 items-center">
-            <Text className="music-kicker mb-4">The imposter was...</Text>
-            <Text className="stage-title text-5xl font-black text-red-400">{imposterName}</Text>
-            <Text className="mt-4 text-lg text-zinc-300">
-              {imposterName === name ? 'That was you! Did you fool them?' : 'Did you call it?'}
-            </Text>
-          </View>
-        ) : (
-          <Text className="text-zinc-400">Loading reveal...</Text>
-        )}
-      </View>
+      <Screen>
+        <Shell style={{ justifyContent: 'center', alignItems: 'center', gap: 20 }}>
+          {imposterName ? (
+            <PanelStrong style={{ alignItems: 'center', paddingVertical: 36, width: '100%' }}>
+              <Kicker>The imposter was…</Kicker>
+              <Text style={[s.bigTitle, { color: '#f87171', fontSize: 44 }]}>{imposterName}</Text>
+              <Text style={{ color: '#a1a1aa', fontSize: 16, marginTop: 10 }}>
+                {imposterName === name ? 'That was you! Did you fool them?' : 'Did you call it?'}
+              </Text>
+            </PanelStrong>
+          ) : (
+            <Text style={{ color: '#71717a' }}>Loading reveal…</Text>
+          )}
+        </Shell>
+      </Screen>
     );
   }
 
-  // Ended
   return (
-    <View className="stage-shell flex min-h-screen flex-col items-center justify-center gap-4 p-8">
-      <Text className="music-kicker">MT Toolkit</Text>
-      <Text className="stage-title text-3xl font-black text-white">Session ended</Text>
-      <Text className="text-zinc-400">Thanks for playing!</Text>
-    </View>
+    <Screen>
+      <Shell style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <Kicker>MT Toolkit</Kicker>
+        <Text style={s.bigTitle}>Session ended</Text>
+        <Text style={{ color: '#71717a', marginTop: 8 }}>Thanks for playing!</Text>
+      </Shell>
+    </Screen>
   );
 }
+
+const s = StyleSheet.create({
+  emoji: { fontSize: 56, textAlign: 'center', marginBottom: 12 },
+  bigTitle: { color: '#fff', fontSize: 34, fontWeight: '900', textAlign: 'center', marginTop: 4 },
+  btnText: { color: '#fff', fontSize: 18, fontWeight: '900' },
+  trackTitle: { color: '#fff', fontSize: 26, fontWeight: '900', textAlign: 'center', marginTop: 6, lineHeight: 32 },
+  imposterBadge: { borderRadius: 999, backgroundColor: 'rgba(127,29,29,0.7)', paddingHorizontal: 18, paddingVertical: 8 },
+  townBadge: { borderRadius: 999, backgroundColor: '#27272a', paddingHorizontal: 18, paddingVertical: 8 },
+  imposterText: { color: '#fca5a5', fontSize: 14, fontWeight: '700' },
+  townText: { color: '#a1a1aa', fontSize: 14, fontWeight: '600' },
+});

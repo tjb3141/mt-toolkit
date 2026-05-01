@@ -1,5 +1,6 @@
 import { useRef, useCallback, useEffect } from 'react';
-import { Audio } from 'expo-av';
+import { createAudioPlayer } from 'expo-audio';
+import type { AudioPlayer } from 'expo-audio';
 
 type AudioOptions = {
   loop?: boolean;
@@ -7,12 +8,14 @@ type AudioOptions = {
 };
 
 export function useAudioPlayer(options?: AudioOptions) {
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const playerRef = useRef<AudioPlayer | null>(null);
   const currentUriRef = useRef<string | null>(null);
+  const onEndRef = useRef(options?.onEnd);
+  onEndRef.current = options?.onEnd;
 
   useEffect(() => {
     return () => {
-      soundRef.current?.unloadAsync();
+      playerRef.current?.remove();
     };
   }, []);
 
@@ -21,44 +24,38 @@ export function useAudioPlayer(options?: AudioOptions) {
       const uri = `/api/audio/${trackId}?session=${sessionId}`;
       if (currentUriRef.current === uri) return;
 
-      if (soundRef.current) {
-        await soundRef.current.unloadAsync();
-      }
+      playerRef.current?.remove();
 
-      const { sound } = await Audio.Sound.createAsync(
-        { uri },
-        { shouldPlay: false, isLooping: options?.loop ?? false }
-      );
+      const player = createAudioPlayer({ uri });
+      player.loop = options?.loop ?? false;
 
-      if (options?.onEnd) {
-        sound.setOnPlaybackStatusUpdate((status) => {
-          if (status.isLoaded && status.didJustFinish && !status.isLooping) {
-            options.onEnd!();
+      if (onEndRef.current) {
+        player.addListener('playbackStatusUpdate', (status) => {
+          if (status.didJustFinish && !player.loop) {
+            onEndRef.current?.();
           }
         });
       }
 
-      soundRef.current = sound;
+      playerRef.current = player;
       currentUriRef.current = uri;
     },
-    [options?.loop, options?.onEnd]
+    [options?.loop]
   );
 
-  const play = useCallback(async () => {
-    try {
-      await soundRef.current?.playAsync();
-    } catch {}
+  const play = useCallback(() => {
+    try { playerRef.current?.play(); } catch {}
   }, []);
 
-  const pause = useCallback(async () => {
-    await soundRef.current?.pauseAsync();
+  const pause = useCallback(() => {
+    try { playerRef.current?.pause(); } catch {}
   }, []);
 
-  const unload = useCallback(async () => {
-    await soundRef.current?.unloadAsync();
-    soundRef.current = null;
+  const unload = useCallback(() => {
+    playerRef.current?.remove();
+    playerRef.current = null;
     currentUriRef.current = null;
   }, []);
 
-  return { loadTrack, play, pause, unload, soundRef };
+  return { loadTrack, play, pause, unload, playerRef };
 }

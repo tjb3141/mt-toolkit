@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, Pressable } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
 import { useParticipant } from '@/hooks/useParticipant';
 import { useAudioPlayer } from '@/hooks/useAudioPlayer';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { useLatest } from '@/hooks/useLatest';
+import { Screen, Shell, Panel, PanelStrong, Kicker, GlowButton, EqBars, StyledInput } from '@/components/ui';
 import type { ModeProps } from '@/lib/modes';
 
 export default function FreezeDanceClientView({ session }: ModeProps) {
@@ -24,7 +26,6 @@ export default function FreezeDanceClientView({ session }: ModeProps) {
 
   const { loadTrack, play, pause } = useAudioPlayer({ loop: true });
 
-  // Subscribe to session updates + new rounds
   useRealtimeTable(`freeze-client:${session.id}`, [
     {
       event: 'UPDATE', table: 'sessions', filter: `id=eq.${session.id}`,
@@ -52,34 +53,22 @@ export default function FreezeDanceClientView({ session }: ModeProps) {
     },
   ], !!participantId);
 
-  // Subscribe to eliminations for this specific participant
   useEffect(() => {
     if (!participantId) return;
-
     const ch = supabase
       .channel(`freeze-elim:${session.id}:${participantId}`)
-      .on('postgres_changes' as any, {
-        event: 'INSERT', schema: 'public', table: 'freeze_dance_eliminations',
-        filter: `participant_id=eq.${participantId}`,
-      }, () => {
-        setIsEliminated(true);
-        pause();
-      })
-      .on('postgres_changes' as any, {
-        event: 'DELETE', schema: 'public', table: 'freeze_dance_eliminations',
-      }, async () => {
+      .on('postgres_changes' as any, { event: 'INSERT', schema: 'public', table: 'freeze_dance_eliminations', filter: `participant_id=eq.${participantId}` }, () => { setIsEliminated(true); pause(); })
+      .on('postgres_changes' as any, { event: 'DELETE', schema: 'public', table: 'freeze_dance_eliminations' }, async () => {
         const pid = participantIdRef.current;
         if (!pid) return;
         const stillEliminated = await checkElimination(pid);
         if (!stillEliminated && playbackStateRef.current === 'playing') play();
       })
       .subscribe();
-
     elimChannelRef.current = ch;
     return () => { supabase.removeChannel(ch); };
   }, [participantId]);
 
-  // On join, load current state
   useEffect(() => {
     if (!participantId) return;
     if (playbackState === 'playing' || playbackState === 'paused') {
@@ -87,7 +76,6 @@ export default function FreezeDanceClientView({ session }: ModeProps) {
     }
   }, [participantId]);
 
-  // Load audio when track changes
   useEffect(() => {
     if (!trackId) return;
     loadTrack(trackId, session.id).then(() => {
@@ -96,37 +84,15 @@ export default function FreezeDanceClientView({ session }: ModeProps) {
   }, [trackId]);
 
   async function loadCurrentRound(pid: string) {
-    const { data: round } = await supabase
-      .from('freeze_dance_rounds')
-      .select('track_id')
-      .eq('session_id', session.id)
-      .order('round', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
+    const { data: round } = await supabase.from('freeze_dance_rounds').select('track_id').eq('session_id', session.id).order('round', { ascending: false }).limit(1).maybeSingle();
     if (!round?.track_id) return;
-
-    const { data: track } = await supabase
-      .from('tracks')
-      .select('id, title')
-      .eq('id', round.track_id)
-      .single();
-
-    if (track) {
-      setTrackId(track.id);
-      setTrackTitle(track.title);
-    }
-
+    const { data: track } = await supabase.from('tracks').select('id, title').eq('id', round.track_id).single();
+    if (track) { setTrackId(track.id); setTrackTitle(track.title); }
     await checkElimination(pid);
   }
 
   async function checkElimination(pid: string): Promise<boolean> {
-    const { data } = await supabase
-      .from('freeze_dance_eliminations')
-      .select('id')
-      .eq('session_id', session.id)
-      .eq('participant_id', pid)
-      .maybeSingle();
+    const { data } = await supabase.from('freeze_dance_eliminations').select('id').eq('session_id', session.id).eq('participant_id', pid).maybeSingle();
     const eliminated = !!data;
     setIsEliminated(eliminated);
     return eliminated;
@@ -141,91 +107,103 @@ export default function FreezeDanceClientView({ session }: ModeProps) {
 
   if (participantLoading) return null;
 
-  // Name entry
   if (!participantId) {
     return (
-      <View className="stage-shell mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-6 px-5 py-8">
-        <View className="music-panel-strong rounded-2xl p-6 items-center">
-          <View className="record-mark mx-auto mb-6" />
-          <Text className="music-kicker mb-2">MT Toolkit</Text>
-          <Text className="stage-title text-4xl font-black text-white text-center">What's your name?</Text>
-        </View>
-        <View className="music-panel rounded-2xl p-5 gap-4">
-          <TextInput value={nameInput} onChangeText={setNameInput} placeholder="Your name" placeholderTextColor="#52525b" maxLength={32} autoFocus onSubmitEditing={handleJoin} className="w-full rounded-xl border-2 border-white/10 bg-black/30 px-6 py-4 text-center text-2xl font-bold text-white focus:border-cyan-300" />
-          <Pressable onPress={handleJoin} disabled={submitting || !nameInput.trim()} className={`primary-glow w-full rounded-xl py-4 items-center ${!nameInput.trim() || submitting ? 'opacity-30' : ''}`}>
-            <Text className="text-lg font-black text-white">{submitting ? 'Joining...' : "Let's go"}</Text>
-          </Pressable>
-        </View>
-      </View>
+      <Screen>
+        <Shell style={{ justifyContent: 'center' }}>
+          <PanelStrong style={{ alignItems: 'center', paddingVertical: 32 }}>
+            <Text style={s.emoji}>🎵</Text>
+            <Kicker>MT Toolkit</Kicker>
+            <Text style={s.bigTitle}>What's your name?</Text>
+          </PanelStrong>
+          <Panel style={{ gap: 12 }}>
+            <StyledInput value={nameInput} onChangeText={setNameInput} placeholder="Your name" maxLength={32} autoFocus onSubmitEditing={handleJoin} />
+            <GlowButton onPress={handleJoin} disabled={submitting || !nameInput.trim()}>
+              <Text style={s.btnText}>{submitting ? 'Joining…' : "Let's go"}</Text>
+            </GlowButton>
+          </Panel>
+        </Shell>
+      </Screen>
     );
   }
 
-  // Ended
   if (playbackState === 'ended') {
     return (
-      <View className="stage-shell flex min-h-screen flex-col items-center justify-center gap-4 p-8">
-        <Text className="music-kicker">MT Toolkit</Text>
-        <Text className="stage-title text-3xl font-black text-white">Session ended</Text>
-        <Text className="text-zinc-400">Thanks for playing!</Text>
-      </View>
+      <Screen>
+        <Shell style={{ justifyContent: 'center', alignItems: 'center' }}>
+          <Kicker>MT Toolkit</Kicker>
+          <Text style={s.bigTitle}>Session ended</Text>
+          <Text style={{ color: '#71717a', marginTop: 8 }}>Thanks for playing!</Text>
+        </Shell>
+      </Screen>
     );
   }
 
-  // Eliminated
   if (isEliminated) {
     return (
-      <View className="stage-shell mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-8 px-5 py-8">
-        <Text className="text-9xl">🧊</Text>
-        <View className="music-panel-strong rounded-2xl p-6 items-center">
-          <Text className="music-kicker text-blue-300">You're out!</Text>
-          <Text className="stage-title mt-2 text-4xl font-black text-white">You didn't freeze</Text>
-          <Text className="mt-3 text-zinc-400">Watch the others finish the round.</Text>
-        </View>
-      </View>
+      <Screen>
+        <Shell style={{ justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ fontSize: 96, lineHeight: 112 }}>🧊</Text>
+          <PanelStrong style={{ alignItems: 'center', width: '100%' }}>
+            <Kicker style={{ color: '#93c5fd' }}>You're out!</Kicker>
+            <Text style={s.bigTitle}>You didn't freeze</Text>
+            <Text style={{ color: '#71717a', marginTop: 8 }}>Watch the others finish the round.</Text>
+          </PanelStrong>
+        </Shell>
+      </Screen>
     );
   }
 
-  // Waiting (no track loaded yet)
   if (!trackId) {
     return (
-      <View className="stage-shell mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-6 px-5 py-8">
-        <View className="music-panel-strong rounded-2xl p-6 items-center">
-          <Text className="music-kicker mb-3">MT Toolkit</Text>
-          <Text className="stage-title text-4xl font-black text-white">Hi, {name}!</Text>
-          <Text className="mt-3 text-lg text-zinc-300 text-center">Waiting for the host to start...</Text>
-        </View>
-        <View className="equalizer"><View /><View /><View /><View /><View /></View>
-      </View>
+      <Screen>
+        <Shell style={{ justifyContent: 'center', alignItems: 'center', gap: 24 }}>
+          <PanelStrong style={{ alignItems: 'center', width: '100%' }}>
+            <Kicker>MT Toolkit</Kicker>
+            <Text style={s.bigTitle}>Hi, {name}!</Text>
+            <Text style={{ color: '#a1a1aa', fontSize: 16, marginTop: 8, textAlign: 'center' }}>Waiting for the host to start…</Text>
+          </PanelStrong>
+          <EqBars />
+        </Shell>
+      </Screen>
     );
   }
 
-  // Playing / Paused (DANCE / FREEZE)
+  const isPlaying = playbackState === 'playing';
   return (
-    <View className="stage-shell mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-between gap-8 px-5 py-10">
-      <View className="w-full">
-        <Text className="music-kicker">MT Toolkit</Text>
-      </View>
+    <Screen>
+      <Shell style={{ justifyContent: 'space-between' }}>
+        <Kicker>MT Toolkit</Kicker>
 
-      {playbackState === 'playing' ? (
-        <View className="items-center gap-4">
-          <Text className="text-[9rem] leading-none">🟢</Text>
-          <Text className="text-3xl font-black text-emerald-300">DANCE!</Text>
+        <View style={{ alignItems: 'center', gap: 16 }}>
+          <LinearGradient
+            colors={isPlaying ? ['#059669', '#34d399'] : ['#b91c1c', '#f87171']}
+            style={s.stateCircle}
+          >
+            <Text style={s.stateEmoji}>{isPlaying ? '🟢' : '🔴'}</Text>
+          </LinearGradient>
+          <Text style={[s.stateLabel, { color: isPlaying ? '#34d399' : '#f87171' }]}>
+            {isPlaying ? 'DANCE!' : 'FREEZE!'}
+          </Text>
         </View>
-      ) : (
-        <View className="items-center gap-4">
-          <Text className="text-[9rem] leading-none">🔴</Text>
-          <Text className="text-3xl font-black text-red-400">FREEZE!</Text>
-        </View>
-      )}
 
-      <View className="music-panel-strong w-full rounded-2xl p-5 items-center">
-        {playbackState === 'playing' ? (
-          <Text className="music-kicker text-emerald-300">Now playing</Text>
-        ) : (
-          <Text className="music-kicker text-zinc-500">Paused — don't move!</Text>
-        )}
-        <Text className="stage-title mt-2 text-2xl leading-tight font-black text-white">{trackTitle}</Text>
-      </View>
-    </View>
+        <PanelStrong style={{ alignItems: 'center' }}>
+          <Kicker style={{ color: isPlaying ? '#34d399' : '#71717a' }}>
+            {isPlaying ? 'Now playing' : 'Paused — don\'t move!'}
+          </Kicker>
+          <Text style={s.trackTitle}>{trackTitle}</Text>
+        </PanelStrong>
+      </Shell>
+    </Screen>
   );
 }
+
+const s = StyleSheet.create({
+  emoji: { fontSize: 48, marginBottom: 12 },
+  bigTitle: { color: '#fff', fontSize: 36, fontWeight: '900', textAlign: 'center', marginTop: 4 },
+  btnText: { color: '#fff', fontSize: 18, fontWeight: '900' },
+  stateCircle: { width: 180, height: 180, borderRadius: 90, alignItems: 'center', justifyContent: 'center' },
+  stateEmoji: { fontSize: 72 },
+  stateLabel: { fontSize: 36, fontWeight: '900', letterSpacing: 2 },
+  trackTitle: { color: '#fff', fontSize: 24, fontWeight: '900', textAlign: 'center', marginTop: 6, lineHeight: 30 },
+});

@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
-import { View, Text, Pressable, FlatList } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
-import { useLatest } from '@/hooks/useLatest';
-import { HomeButton } from '@/components/HomeButton';
+import { Screen, Shell, Panel, PanelStrong, Kicker, HomeButton, EndLink, ListRow, C } from '@/components/ui';
 import { QRCodeDisplay } from '@/components/QRCodeDisplay';
 import type { ModeProps } from '@/lib/modes';
 import type { Participant } from '@/lib/types';
@@ -13,43 +12,20 @@ export default function SilentDiscoHostControls({ session }: ModeProps) {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [genreMap, setGenreMap] = useState<Record<string, string>>({});
 
-  const participantsRef = useLatest(participants);
   const joinUrl = typeof window !== 'undefined' ? `${window.location.origin}/join/${session.code}` : '';
 
   useEffect(() => {
     supabase.from('playlists').select('id, name').then(({ data }) => {
       setGenreMap(Object.fromEntries((data ?? []).map((g) => [g.id, g.name])));
     });
-
-    supabase
-      .from('participants')
-      .select('id, name, playlist_id, current_track, joined_at')
-      .eq('session_id', session.id)
-      .order('joined_at')
-      .then(({ data }) => {
-        setParticipants(data ?? []);
-      });
+    supabase.from('participants').select('id, name, playlist_id, current_track, joined_at').eq('session_id', session.id).order('joined_at').then(({ data }) => {
+      setParticipants(data ?? []);
+    });
   }, [session.id]);
 
   useRealtimeTable(`participants:${session.id}`, [
-    {
-      event: 'INSERT',
-      table: 'participants',
-      filter: `session_id=eq.${session.id}`,
-      onPayload: (payload) => {
-        setParticipants((prev) => [...prev, payload.new as Participant]);
-      },
-    },
-    {
-      event: 'UPDATE',
-      table: 'participants',
-      onPayload: (payload) => {
-        if (payload.new.session_id !== session.id) return;
-        setParticipants((prev) =>
-          prev.map((p) => (p.id === payload.new.id ? (payload.new as Participant) : p))
-        );
-      },
-    },
+    { event: 'INSERT', table: 'participants', filter: `session_id=eq.${session.id}`, onPayload: (p) => setParticipants((prev) => [...prev, p.new as Participant]) },
+    { event: 'UPDATE', table: 'participants', onPayload: (p) => { if (p.new.session_id !== session.id) return; setParticipants((prev) => prev.map((x) => x.id === p.new.id ? p.new as Participant : x)); } },
   ]);
 
   async function toggle() {
@@ -64,70 +40,67 @@ export default function SilentDiscoHostControls({ session }: ModeProps) {
   }
 
   return (
-    <View className="stage-shell mx-auto flex min-h-screen w-full max-w-lg flex-col items-center gap-6 px-5 py-6">
-      <View className="flex-row w-full items-center justify-between gap-4">
-        <Text className="music-kicker">Silent Disco Host</Text>
-        <HomeButton />
-      </View>
-
-      <View className="music-panel-strong w-full rounded-2xl p-6 items-center">
-        <Text className="music-kicker mb-3">Room Code</Text>
-        <Text className="stage-title text-7xl font-black tracking-widest text-white">
-          {session.code}
-        </Text>
-        <View className="mt-5 rounded-full border border-white/10 bg-white/5 px-4 py-2">
-          <Text className="text-sm font-bold text-cyan-100">Guests scan or type this code</Text>
+    <Screen>
+      <ScrollView contentContainerStyle={s.scrollContent}>
+        <View style={s.topBar}>
+          <Kicker style={{ marginBottom: 0 }}>Silent Disco Host</Kicker>
+          <HomeButton />
         </View>
-      </View>
 
-      {joinUrl ? <QRCodeDisplay url={joinUrl} code={session.code} /> : null}
-
-      <Text className="max-w-sm text-center text-xs text-zinc-400">{joinUrl}</Text>
-
-      {playbackState !== 'ended' ? (
-        <>
-          <Pressable
-            onPress={toggle}
-            className={`h-44 w-44 rounded-full items-center justify-center shadow-2xl active:scale-95 ${
-              playbackState === 'playing' ? 'bg-red-500' : 'bg-emerald-500'
-            }`}
-          >
-            <Text className="text-3xl font-black text-white">
-              {playbackState === 'playing' ? 'Pause' : 'Play'}
-            </Text>
-          </Pressable>
-          <Pressable onPress={endSession}>
-            <Text className="text-sm text-zinc-600 underline underline-offset-4">End session</Text>
-          </Pressable>
-        </>
-      ) : (
-        <Text className="text-zinc-500">Session ended.</Text>
-      )}
-
-      <View className="music-panel w-full rounded-2xl p-5">
-        <Text className="music-kicker mb-3">Participants ({participants.length})</Text>
-        {participants.length === 0 ? (
-          <Text className="text-sm text-zinc-400">No one has joined yet.</Text>
-        ) : (
-          <View className="gap-2">
-            {participants.map((p) => (
-              <View key={p.id} className="rounded-xl bg-white/5 px-5 py-4 gap-1">
-                <View className="flex-row items-center justify-between">
-                  <Text className="font-semibold text-white">{p.name}</Text>
-                  <Text className="text-xs text-zinc-500">
-                    {p.playlist_id ? (genreMap[p.playlist_id] ?? '...') : 'picking...'}
-                  </Text>
-                </View>
-                {p.current_track ? (
-                  <Text className="text-sm text-zinc-400" numberOfLines={1}>
-                    {p.current_track}
-                  </Text>
-                ) : null}
-              </View>
-            ))}
+        <PanelStrong style={{ alignItems: 'center' }}>
+          <Kicker>Room Code</Kicker>
+          <Text style={s.roomCode}>{session.code}</Text>
+          <View style={s.codePill}>
+            <Text style={{ color: '#a5f3fc', fontSize: 13, fontWeight: '600' }}>Guests scan or type this code</Text>
           </View>
+        </PanelStrong>
+
+        {joinUrl ? <QRCodeDisplay url={joinUrl} code={session.code} /> : null}
+
+        {playbackState !== 'ended' ? (
+          <>
+            <View style={{ alignItems: 'center' }}>
+              <Pressable onPress={toggle} style={[s.bigBtn, { backgroundColor: playbackState === 'playing' ? '#ef4444' : '#10b981' }]}>
+                <Text style={s.bigBtnText}>{playbackState === 'playing' ? 'Pause' : 'Play'}</Text>
+              </Pressable>
+            </View>
+            <EndLink onPress={endSession} />
+          </>
+        ) : (
+          <Text style={{ color: '#52525b', textAlign: 'center' }}>Session ended.</Text>
         )}
-      </View>
-    </View>
+
+        <Panel>
+          <Kicker>Participants ({participants.length})</Kicker>
+          {participants.length === 0
+            ? <Text style={s.empty}>No one has joined yet.</Text>
+            : <View style={{ gap: 8 }}>
+                {participants.map((p) => (
+                  <ListRow key={p.id} style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
+                      <Text style={s.name}>{p.name}</Text>
+                      <Text style={s.genreTag}>{p.playlist_id ? (genreMap[p.playlist_id] ?? '…') : 'picking…'}</Text>
+                    </View>
+                    {p.current_track ? <Text style={s.trackLine} numberOfLines={1}>{p.current_track}</Text> : null}
+                  </ListRow>
+                ))}
+              </View>
+          }
+        </Panel>
+      </ScrollView>
+    </Screen>
   );
 }
+
+const s = StyleSheet.create({
+  scrollContent: { maxWidth: 480, width: '100%', alignSelf: 'center', paddingHorizontal: 20, paddingVertical: 36, gap: 14 },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  roomCode: { color: '#fff', fontSize: 56, fontWeight: '900', letterSpacing: 8, textAlign: 'center' },
+  codePill: { marginTop: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: 'rgba(255,255,255,0.04)' },
+  bigBtn: { width: 160, height: 160, borderRadius: 80, alignItems: 'center', justifyContent: 'center' },
+  bigBtnText: { color: '#fff', fontSize: 28, fontWeight: '900' },
+  name: { color: '#fff', fontWeight: '600', fontSize: 15 },
+  genreTag: { color: '#52525b', fontSize: 12 },
+  trackLine: { color: '#71717a', fontSize: 13 },
+  empty: { color: '#71717a', fontSize: 14 },
+});

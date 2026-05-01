@@ -1,29 +1,21 @@
-import { View, Text } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
-type Props = {
-  url: string;
-  code: string;
-};
-
-export function QRCodeDisplay({ url, code }: Props) {
+export function QRCodeDisplay({ url, code }: { url: string; code: string }) {
   return (
-    <View className="items-center gap-4">
-      <View className="bg-zinc-900 rounded-2xl p-4">
-        <QRCode
-          value={url}
-          size={160}
-          backgroundColor="#18181b"
-          color="#ffffff"
-          quietZone={8}
-        />
+    <View style={s.wrap}>
+      <View style={s.qrBox}>
+        <QRCode value={url} size={160} backgroundColor="#18181b" color="#ffffff" quietZone={8} />
       </View>
-      <View className="items-center">
-        <Text className="text-zinc-400 text-xs uppercase tracking-widest">Room Code</Text>
-        <Text className="text-white text-3xl font-black tracking-[0.3em] mt-1">
-          {code}
-        </Text>
-      </View>
+      <Text style={s.label}>Room Code</Text>
+      <Text style={s.code}>{code}</Text>
     </View>
   );
 }
+
+const s = StyleSheet.create({
+  wrap: { alignItems: 'center', gap: 10 },
+  qrBox: { backgroundColor: '#18181b', borderRadius: 16, padding: 16 },
+  label: { color: '#71717a', fontSize: 11, fontWeight: '900', letterSpacing: 4, textTransform: 'uppercase' },
+  code: { color: '#fff', fontSize: 32, fontWeight: '900', letterSpacing: 10, marginTop: 2 },
+});

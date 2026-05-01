@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { View, Text, Pressable, ScrollView } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
-import { HomeButton } from '@/components/HomeButton';
+import { Screen, Shell, Panel, PanelStrong, Kicker, GlowButton, HomeButton, ListRow, EndLink, C } from '@/components/ui';
 import { QRCodeDisplay } from '@/components/QRCodeDisplay';
 import type { ModeProps } from '@/lib/modes';
 import type { Participant, Playlist } from '@/lib/types';
@@ -26,15 +27,8 @@ export default function FreezeDanceHostControls({ session }: ModeProps) {
   const [starting, setStarting] = useState(false);
 
   const joinUrl = typeof window !== 'undefined' ? `${window.location.origin}/join/${session.code}` : '';
-
-  const activeParticipants = useMemo(
-    () => participants.filter((p) => !eliminatedIds.has(p.id)),
-    [participants, eliminatedIds]
-  );
-  const eliminatedParticipants = useMemo(
-    () => participants.filter((p) => eliminatedIds.has(p.id)),
-    [participants, eliminatedIds]
-  );
+  const activeParticipants = useMemo(() => participants.filter((p) => !eliminatedIds.has(p.id)), [participants, eliminatedIds]);
+  const eliminatedParticipants = useMemo(() => participants.filter((p) => eliminatedIds.has(p.id)), [participants, eliminatedIds]);
 
   useEffect(() => {
     Promise.all([
@@ -44,50 +38,21 @@ export default function FreezeDanceHostControls({ session }: ModeProps) {
       setParticipants(pData ?? []);
       setPlaylists(plData ?? []);
     });
-
     loadCurrentRoundState();
   }, [session.id]);
 
   useRealtimeTable(`freeze-host:${session.id}`, [
-    {
-      event: 'INSERT', table: 'participants', filter: `session_id=eq.${session.id}`,
-      onPayload: (payload) => setParticipants((prev) => [...prev, payload.new as Participant]),
-    },
-    {
-      event: 'UPDATE', table: 'sessions', filter: `id=eq.${session.id}`,
-      onPayload: (payload) => {
-        setPlaybackState(payload.new.playback_state);
-        if (payload.new.playback_state === 'ended') setLocalPhase('ended');
-      },
-    },
-    {
-      event: 'INSERT', table: 'freeze_dance_eliminations',
-      onPayload: (payload) => {
-        if (payload.new.session_id !== session.id) return;
-        setEliminatedIds((prev) => new Set([...prev, payload.new.participant_id]));
-      },
-    },
-    {
-      event: 'DELETE', table: 'freeze_dance_eliminations',
-      onPayload: () => reloadEliminations(),
-    },
+    { event: 'INSERT', table: 'participants', filter: `session_id=eq.${session.id}`, onPayload: (p) => setParticipants((prev) => [...prev, p.new as Participant]) },
+    { event: 'UPDATE', table: 'sessions', filter: `id=eq.${session.id}`, onPayload: (p) => { setPlaybackState(p.new.playback_state); if (p.new.playback_state === 'ended') setLocalPhase('ended'); } },
+    { event: 'INSERT', table: 'freeze_dance_eliminations', onPayload: (p) => { if (p.new.session_id !== session.id) return; setEliminatedIds((prev) => new Set([...prev, p.new.participant_id])); } },
+    { event: 'DELETE', table: 'freeze_dance_eliminations', onPayload: () => reloadEliminations() },
   ]);
 
   async function loadCurrentRoundState() {
-    const { data: round } = await supabase
-      .from('freeze_dance_rounds')
-      .select('round, track_id')
-      .eq('session_id', session.id)
-      .order('round', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const { data: round } = await supabase.from('freeze_dance_rounds').select('round, track_id').eq('session_id', session.id).order('round', { ascending: false }).limit(1).maybeSingle();
     if (round) {
       setCurrentRound(round.round);
-      const { data: track } = await supabase
-        .from('tracks')
-        .select('title, playlist_id')
-        .eq('id', round.track_id)
-        .single();
+      const { data: track } = await supabase.from('tracks').select('title, playlist_id').eq('id', round.track_id).single();
       if (track?.playlist_id) setSelectedPlaylistId(track.playlist_id);
       if (track?.title) setCurrentTrackTitle(track.title);
       setLocalPhase('playing');
@@ -96,36 +61,21 @@ export default function FreezeDanceHostControls({ session }: ModeProps) {
   }
 
   async function reloadEliminations() {
-    const { data } = await supabase
-      .from('freeze_dance_eliminations')
-      .select('participant_id')
-      .eq('session_id', session.id);
+    const { data } = await supabase.from('freeze_dance_eliminations').select('participant_id').eq('session_id', session.id);
     setEliminatedIds(new Set((data ?? []).map((r) => r.participant_id)));
   }
 
   async function startRound() {
     if (!selectedPlaylistId) return;
     setStarting(true);
-
-    const { data: trackRows } = await supabase
-      .from('tracks')
-      .select('id, title')
-      .eq('playlist_id', selectedPlaylistId);
-
+    const { data: trackRows } = await supabase.from('tracks').select('id, title').eq('playlist_id', selectedPlaylistId);
     const track = shuffle(trackRows ?? [])[0];
     if (!track) { setStarting(false); return; }
     setCurrentTrackTitle(track.title);
-
     const nextRound = currentRound + 1;
-
     await supabase.from('freeze_dance_eliminations').delete().eq('session_id', session.id);
-    await supabase.from('freeze_dance_rounds').insert({
-      session_id: session.id,
-      round: nextRound,
-      track_id: track.id,
-    });
+    await supabase.from('freeze_dance_rounds').insert({ session_id: session.id, round: nextRound, track_id: track.id });
     await supabase.from('sessions').update({ playback_state: 'paused' }).eq('id', session.id);
-
     setEliminatedIds(new Set());
     setCurrentRound(nextRound);
     setPlaybackState('paused');
@@ -140,10 +90,7 @@ export default function FreezeDanceHostControls({ session }: ModeProps) {
   }
 
   async function markOut(participantId: string) {
-    await supabase.from('freeze_dance_eliminations').insert({
-      session_id: session.id,
-      participant_id: participantId,
-    });
+    await supabase.from('freeze_dance_eliminations').insert({ session_id: session.id, participant_id: participantId });
     setEliminatedIds((prev) => new Set([...prev, participantId]));
   }
 
@@ -154,185 +101,192 @@ export default function FreezeDanceHostControls({ session }: ModeProps) {
 
   async function endSession() {
     await supabase.from('sessions').update({ playback_state: 'ended' }).eq('id', session.id);
-    setPlaybackState('ended');
     setLocalPhase('ended');
   }
 
-  // LOBBY
-  if (localPhase === 'lobby') {
+  if (localPhase === 'ended') {
     return (
-      <ScrollView className="stage-shell mx-auto min-h-screen w-full max-w-lg px-5 py-6" contentContainerClassName="items-center gap-6">
-        <View className="flex-row w-full items-center justify-between gap-4">
-          <Text className="music-kicker">Freeze Dance Host</Text>
+      <Screen>
+        <Shell style={{ justifyContent: 'center', alignItems: 'center' }}>
+          <Kicker>Freeze Dance</Kicker>
+          <Text style={{ color: '#fff', fontSize: 36, fontWeight: '900', marginTop: 8 }}>Session complete</Text>
+          <Text style={{ color: '#71717a', marginTop: 8 }}>Thanks for playing!</Text>
           <HomeButton />
-        </View>
-        <View className="music-panel-strong w-full rounded-2xl p-6 items-center">
-          <Text className="music-kicker mb-3">Room Code</Text>
-          <Text className="stage-title text-7xl font-black tracking-widest text-white">{session.code}</Text>
-          <Text className="mt-4 text-sm font-semibold text-cyan-100">Get everyone into the room first</Text>
-        </View>
-        {joinUrl ? <QRCodeDisplay url={joinUrl} code={session.code} /> : null}
-        <View className="music-panel w-full rounded-2xl p-5">
-          <Text className="music-kicker mb-3">Participants ({participants.length})</Text>
-          {participants.length === 0 ? (
-            <Text className="text-sm text-zinc-400">No one has joined yet.</Text>
-          ) : (
-            <View className="gap-2">
-              {participants.map((p) => (
-                <View key={p.id} className="rounded-xl bg-white/5 px-5 py-4">
-                  <Text className="font-semibold text-white">{p.name}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-        {participants.length >= 1 ? (
-          <Pressable onPress={() => setLocalPhase('setup')} className="primary-glow w-full max-w-sm rounded-2xl py-5 items-center active:scale-95">
-            <Text className="text-xl font-black text-white">Pick a playlist & start</Text>
-          </Pressable>
-        ) : (
-          <View className="rounded-full border border-white/10 bg-white/5 px-4 py-2">
-            <Text className="text-sm text-zinc-300">Waiting for participants...</Text>
-          </View>
-        )}
-        <Pressable onPress={endSession}>
-          <Text className="text-sm text-zinc-600 underline underline-offset-4">End session</Text>
-        </Pressable>
-      </ScrollView>
+        </Shell>
+      </Screen>
     );
   }
 
-  // SETUP
+  if (localPhase === 'lobby') {
+    return (
+      <Screen>
+        <ScrollView contentContainerStyle={s.scrollContent}>
+          <View style={s.topBar}>
+            <Kicker style={{ marginBottom: 0 }}>Freeze Dance Host</Kicker>
+            <HomeButton />
+          </View>
+
+          <PanelStrong style={{ alignItems: 'center' }}>
+            <Kicker>Room Code</Kicker>
+            <Text style={s.roomCode}>{session.code}</Text>
+            <Text style={{ color: '#a5f3fc', fontSize: 13, marginTop: 8 }}>Get everyone into the room first</Text>
+          </PanelStrong>
+
+          {joinUrl ? <QRCodeDisplay url={joinUrl} code={session.code} /> : null}
+
+          <Panel>
+            <Kicker>Participants ({participants.length})</Kicker>
+            {participants.length === 0
+              ? <Text style={s.empty}>No one has joined yet.</Text>
+              : <View style={{ gap: 8 }}>{participants.map((p) => <ListRow key={p.id}><Text style={s.name}>{p.name}</Text></ListRow>)}</View>
+            }
+          </Panel>
+
+          {participants.length >= 1
+            ? <GlowButton onPress={() => setLocalPhase('setup')}><Text style={s.ctaText}>Pick a playlist &amp; start</Text></GlowButton>
+            : <View style={s.waitingBadge}><Text style={{ color: '#a1a1aa', fontSize: 13 }}>Waiting for participants…</Text></View>
+          }
+          <EndLink onPress={endSession} />
+        </ScrollView>
+      </Screen>
+    );
+  }
+
   if (localPhase === 'setup') {
     return (
-      <ScrollView className="stage-shell mx-auto min-h-screen w-full max-w-lg px-5 py-6" contentContainerClassName="gap-6">
-        <View className="flex-row items-start justify-between gap-4">
-          <View>
-            <Text className="music-kicker">Freeze Dance Host</Text>
-            <Text className="stage-title mt-2 text-4xl font-black text-white">
-              {currentRound > 0 ? `Round ${currentRound + 1}` : 'Pick a playlist'}
-            </Text>
+      <Screen>
+        <ScrollView contentContainerStyle={s.scrollContent}>
+          <View style={s.topBar}>
+            <View>
+              <Kicker style={{ marginBottom: 0 }}>Freeze Dance Host</Kicker>
+              <Text style={s.setupTitle}>{currentRound > 0 ? `Round ${currentRound + 1}` : 'Pick a playlist'}</Text>
+            </View>
+            <HomeButton />
           </View>
-          <HomeButton />
-        </View>
-        <View className="music-panel rounded-2xl p-5">
-          <Text className="music-kicker mb-3">Playlist</Text>
-          <Text className="mb-3 text-sm text-zinc-400">Everyone hears the same random track.</Text>
-          <View className="flex-row flex-wrap gap-2">
-            {playlists.map((pl) => (
-              <Pressable key={pl.id} onPress={() => setSelectedPlaylistId(pl.id)} className={`rounded-xl px-4 py-2 ${selectedPlaylistId === pl.id ? 'bg-cyan-600' : 'bg-zinc-800'}`}>
-                <Text className="text-sm font-semibold text-white">{pl.name}</Text>
-              </Pressable>
-            ))}
+
+          <Panel>
+            <Kicker>Playlist</Kicker>
+            <Text style={s.subText}>Everyone hears the same random track.</Text>
+            <View style={s.pillRow}>
+              {playlists.map((pl) => (
+                <Pressable key={pl.id} onPress={() => setSelectedPlaylistId(pl.id)} style={[s.pill, selectedPlaylistId === pl.id && s.pillActive]}>
+                  <Text style={s.pillText}>{pl.name}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </Panel>
+
+          <View style={s.rowBtns}>
+            <Pressable onPress={() => setLocalPhase(currentRound > 0 ? 'playing' : 'lobby')} style={s.backBtn}>
+              <Text style={{ color: '#fff', fontWeight: '700' }}>Back</Text>
+            </Pressable>
+            <GlowButton onPress={startRound} disabled={starting || !selectedPlaylistId} style={{ flex: 1 }}>
+              <Text style={s.ctaText}>{starting ? 'Starting…' : currentRound > 0 ? 'Start Next Round' : 'Start Round'}</Text>
+            </GlowButton>
           </View>
-        </View>
-        <View className="flex-row gap-3 mt-auto">
-          <Pressable onPress={() => setLocalPhase(currentRound > 0 ? 'playing' : 'lobby')} className="music-panel flex-1 rounded-2xl py-4 items-center">
-            <Text className="font-bold text-white">Back</Text>
-          </Pressable>
-          <Pressable onPress={startRound} disabled={starting || !selectedPlaylistId} className={`flex-1 rounded-2xl bg-emerald-600 py-4 items-center ${starting || !selectedPlaylistId ? 'opacity-30' : ''}`}>
-            <Text className="text-lg font-black text-white">
-              {starting ? 'Starting...' : currentRound > 0 ? 'Start Next Round' : 'Start Round'}
-            </Text>
-          </Pressable>
-        </View>
-        <Pressable onPress={endSession}>
-          <Text className="text-sm text-zinc-600 underline underline-offset-4">End session</Text>
-        </Pressable>
-      </ScrollView>
+          <EndLink onPress={endSession} />
+        </ScrollView>
+      </Screen>
     );
   }
 
   // PLAYING
-  if (localPhase === 'playing') {
-    return (
-      <ScrollView className="stage-shell mx-auto min-h-screen w-full max-w-lg px-5 py-6" contentContainerClassName="gap-5">
-        <View className="flex-row w-full items-center justify-between gap-4">
+  const isWinner = activeParticipants.length === 1;
+  return (
+    <Screen>
+      <ScrollView contentContainerStyle={s.scrollContent}>
+        <View style={s.topBar}>
           <View>
-            <Text className="music-kicker">Freeze Dance Host</Text>
-            <Text className="text-xs text-zinc-500">Round {currentRound}</Text>
+            <Kicker style={{ marginBottom: 0 }}>Freeze Dance Host</Kicker>
+            <Text style={s.roundLabel}>Round {currentRound}</Text>
           </View>
           <HomeButton />
         </View>
 
-        {activeParticipants.length === 1 ? (
-          <View className="music-panel-strong w-full rounded-2xl p-6 items-center">
-            <Text className="music-kicker text-yellow-300">Winner!</Text>
-            <Text className="stage-title mt-2 text-5xl font-black text-white">{activeParticipants[0].name}</Text>
-            <Text className="mt-3 text-zinc-400">Last one standing</Text>
-          </View>
+        {isWinner ? (
+          <PanelStrong style={{ alignItems: 'center' }}>
+            <Kicker style={{ color: '#fde047' }}>Winner!</Kicker>
+            <Text style={[s.roomCode, { fontSize: 40 }]}>{activeParticipants[0].name}</Text>
+            <Text style={s.subText}>Last one standing</Text>
+          </PanelStrong>
         ) : (
           <>
-            <View className="items-center gap-4">
-              <Pressable onPress={togglePlayback} className={`h-44 w-44 rounded-full items-center justify-center shadow-2xl active:scale-95 ${playbackState === 'playing' ? 'bg-red-500' : 'bg-emerald-500'}`}>
-                <Text className="text-3xl font-black text-white">{playbackState === 'playing' ? 'Pause' : 'Play'}</Text>
+            <View style={{ alignItems: 'center', gap: 16 }}>
+              <Pressable onPress={togglePlayback} style={[s.bigBtn, { backgroundColor: playbackState === 'playing' ? '#ef4444' : '#10b981' }]}>
+                <Text style={s.bigBtnText}>{playbackState === 'playing' ? 'Pause' : 'Play'}</Text>
               </Pressable>
-              {playbackState === 'paused' ? (
-                <Text className="text-sm font-semibold text-red-400">Music stopped — mark anyone who moved</Text>
-              ) : (
-                <Text className="text-sm font-semibold text-emerald-400">Music playing</Text>
-              )}
-              {currentTrackTitle && <Text className="text-sm text-zinc-400">{currentTrackTitle}</Text>}
+              {playbackState === 'paused'
+                ? <Text style={{ color: '#f87171', fontSize: 13, fontWeight: '600' }}>Music stopped — mark anyone who moved</Text>
+                : <Text style={{ color: '#34d399', fontSize: 13, fontWeight: '600' }}>Music playing</Text>
+              }
+              {currentTrackTitle && <Text style={s.subText}>{currentTrackTitle}</Text>}
             </View>
 
-            <View className="music-panel w-full rounded-2xl p-5">
-              <View className="flex-row items-center justify-between mb-3">
-                <Text className="music-kicker">Still in ({activeParticipants.length})</Text>
+            <Panel>
+              <View style={s.rowBetween}>
+                <Kicker style={{ marginBottom: 0 }}>Still in ({activeParticipants.length})</Kicker>
                 {playbackState === 'paused' && eliminatedIds.size > 0 && (
-                  <Pressable onPress={restoreAll}>
-                    <Text className="text-xs text-zinc-500 underline underline-offset-4">Restore all</Text>
-                  </Pressable>
+                  <Pressable onPress={restoreAll}><Text style={{ color: '#52525b', fontSize: 12, textDecorationLine: 'underline' }}>Restore all</Text></Pressable>
                 )}
               </View>
-              <View className="gap-2">
+              <View style={{ gap: 8, marginTop: 10 }}>
                 {activeParticipants.map((p) => (
-                  <View key={p.id} className="flex-row items-center justify-between rounded-xl bg-white/5 px-5 py-4">
-                    <Text className="font-semibold text-white">{p.name}</Text>
+                  <ListRow key={p.id} style={{ justifyContent: 'space-between' }}>
+                    <Text style={s.name}>{p.name}</Text>
                     {playbackState === 'paused' && (
-                      <Pressable onPress={() => markOut(p.id)} className="rounded-full bg-red-900/60 px-3 py-1">
-                        <Text className="text-xs font-bold text-red-300">Mark out</Text>
+                      <Pressable onPress={() => markOut(p.id)} style={s.markOutBtn}>
+                        <Text style={{ color: '#fca5a5', fontSize: 12, fontWeight: '700' }}>Mark out</Text>
                       </Pressable>
                     )}
-                  </View>
+                  </ListRow>
                 ))}
               </View>
-            </View>
+            </Panel>
           </>
         )}
 
         {eliminatedParticipants.length > 0 && (
-          <View className="music-panel w-full rounded-2xl p-5">
-            <Text className="music-kicker mb-3 text-zinc-500">Out ({eliminatedParticipants.length})</Text>
-            <View className="gap-2">
+          <Panel>
+            <Kicker style={{ color: '#52525b' }}>Out ({eliminatedParticipants.length})</Kicker>
+            <View style={{ gap: 8, marginTop: 8 }}>
               {eliminatedParticipants.map((p) => (
-                <View key={p.id} className="flex-row items-center gap-3 rounded-xl bg-white/5 px-5 py-4">
-                  <Text className="text-xl">🧊</Text>
-                  <Text className="font-semibold text-zinc-400">{p.name}</Text>
-                </View>
+                <ListRow key={p.id} style={{ gap: 10 }}>
+                  <Text style={{ fontSize: 20 }}>🧊</Text>
+                  <Text style={[s.name, { color: '#71717a' }]}>{p.name}</Text>
+                </ListRow>
               ))}
             </View>
-          </View>
+          </Panel>
         )}
 
-        <View className="mt-auto gap-3">
-          <Pressable onPress={() => setLocalPhase('setup')} className="w-full rounded-2xl bg-cyan-600 py-4 items-center active:scale-95">
-            <Text className="text-lg font-black text-white">Next Round</Text>
-          </Pressable>
-          <Pressable onPress={endSession}>
-            <Text className="text-sm text-zinc-600 underline underline-offset-4">End session</Text>
-          </Pressable>
-        </View>
+        <GlowButton onPress={() => setLocalPhase('setup')}>
+          <Text style={s.ctaText}>Next Round</Text>
+        </GlowButton>
+        <EndLink onPress={endSession} />
       </ScrollView>
-    );
-  }
-
-  // ENDED
-  return (
-    <View className="stage-shell flex min-h-screen flex-col items-center justify-center gap-4 p-8">
-      <Text className="music-kicker">Freeze Dance Host</Text>
-      <Text className="stage-title text-4xl font-black text-white">Session complete</Text>
-      <Text className="text-zinc-500">Thanks for playing!</Text>
-      <HomeButton />
-    </View>
+    </Screen>
   );
 }
+
+const s = StyleSheet.create({
+  scrollContent: { maxWidth: 480, width: '100%', alignSelf: 'center', paddingHorizontal: 20, paddingVertical: 36, gap: 14 },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  roomCode: { color: '#fff', fontSize: 56, fontWeight: '900', letterSpacing: 8, textAlign: 'center' },
+  setupTitle: { color: '#fff', fontSize: 32, fontWeight: '900', marginTop: 4 },
+  roundLabel: { color: '#52525b', fontSize: 12, marginTop: 2 },
+  name: { color: '#fff', fontWeight: '600', fontSize: 15 },
+  empty: { color: '#71717a', fontSize: 14 },
+  subText: { color: '#71717a', fontSize: 13, marginTop: 4 },
+  ctaText: { color: '#fff', fontSize: 20, fontWeight: '900' },
+  waitingBadge: { alignSelf: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 999, paddingHorizontal: 16, paddingVertical: 8 },
+  pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  pill: { borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#27272a' },
+  pillActive: { backgroundColor: '#0e7490' },
+  pillText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  rowBtns: { flexDirection: 'row', gap: 10 },
+  backBtn: { flex: 1, borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, backgroundColor: 'rgba(255,255,255,0.05)' },
+  bigBtn: { width: 160, height: 160, borderRadius: 80, alignItems: 'center', justifyContent: 'center' },
+  bigBtnText: { color: '#fff', fontSize: 28, fontWeight: '900' },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  markOutBtn: { borderRadius: 999, backgroundColor: 'rgba(127,29,29,0.6)', paddingHorizontal: 12, paddingVertical: 4 },
+});

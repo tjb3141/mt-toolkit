@@ -28,3 +28,8 @@ ingestion/__pycache__/
 Silent Disco Notes.txt
 *.mp3
 github_pat.txt
+
+# Tooling
+.claude/
+.svelte-kit/
+.vercel/

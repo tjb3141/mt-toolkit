@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
+import Svg, { Path, Circle } from 'react-native-svg';
 import { supabase } from '@/lib/supabase';
 import { useParticipant } from '@/hooks/useParticipant';
 import { useAudioPlayer } from '@/hooks/useAudioPlayer';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { useLatest } from '@/hooks/useLatest';
+import { Screen, Shell, Panel, PanelStrong, Kicker, GlowButton, IconTile, StyledInput, C } from '@/components/ui';
 import type { ModeProps } from '@/lib/modes';
 import type { Playlist, Track } from '@/lib/types';
-import Svg, { Path, Circle } from 'react-native-svg';
 
 function shuffle<T>(arr: T[]): T[] {
   return [...arr].sort(() => Math.random() - 0.5);
@@ -21,221 +22,160 @@ export default function SilentDiscoClientView({ session }: ModeProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [playbackState, setPlaybackState] = useState(session.playback_state);
   const [submitting, setSubmitting] = useState(false);
+  const [nameValue, setNameValue] = useState('');
 
   const playbackStateRef = useLatest(playbackState);
   const tracksRef = useLatest(tracks);
   const currentIndexRef = useLatest(currentIndex);
 
-  const nextTrack = useCallback(() => {
-    setCurrentIndex((i) => (i + 1) % tracksRef.current.length);
-  }, []);
-
+  const nextTrack = useCallback(() => { setCurrentIndex((i) => (i + 1) % tracksRef.current.length); }, []);
   const { loadTrack, play, pause } = useAudioPlayer({ loop: false, onEnd: nextTrack });
 
-  // Load playlists on mount
   useEffect(() => {
-    supabase.from('playlists').select('id, name').order('display_order').then(({ data }) => {
-      setGenres(data ?? []);
-    });
+    supabase.from('playlists').select('id, name').order('display_order').then(({ data }) => setGenres(data ?? []));
   }, []);
 
-  // Subscribe to session playback state changes
   useRealtimeTable(`session:${session.id}`, [
-    {
-      event: 'UPDATE',
-      table: 'sessions',
-      filter: `id=eq.${session.id}`,
-      onPayload: (payload) => {
-        const newState = payload.new.playback_state;
-        setPlaybackState(newState);
-        if (newState === 'playing') play();
-        else pause();
-      },
-    },
+    { event: 'UPDATE', table: 'sessions', filter: `id=eq.${session.id}`, onPayload: (p) => { const s = p.new.playback_state; setPlaybackState(s); if (s === 'playing') play(); else pause(); } },
   ]);
 
-  // Load audio when track changes
   useEffect(() => {
     if (tracks.length === 0) return;
-    loadTrack(tracks[currentIndex].id, session.id).then(() => {
-      if (playbackStateRef.current === 'playing') play();
-    });
+    loadTrack(tracks[currentIndex].id, session.id).then(() => { if (playbackStateRef.current === 'playing') play(); });
   }, [tracks, currentIndex]);
 
-  // Report current track to host
   useEffect(() => {
     if (!participantId || tracks.length === 0) return;
-    supabase
-      .from('participants')
-      .update({ current_track: tracks[currentIndex].title })
-      .eq('id', participantId)
-      .then(() => {});
+    supabase.from('participants').update({ current_track: tracks[currentIndex].title }).eq('id', participantId).then(() => {});
   }, [participantId, tracks, currentIndex]);
 
   async function selectGenre(genre: Playlist) {
     setSelectedGenre(genre);
-    if (participantId) {
-      await supabase.from('participants').update({ playlist_id: genre.id }).eq('id', participantId);
-    }
-    const { data } = await supabase
-      .from('tracks')
-      .select('id, title, storage_path, duration_seconds')
-      .eq('playlist_id', genre.id);
+    if (participantId) await supabase.from('participants').update({ playlist_id: genre.id }).eq('id', participantId);
+    const { data } = await supabase.from('tracks').select('id, title, storage_path, duration_seconds').eq('playlist_id', genre.id);
     setTracks(shuffle(data ?? []));
     setCurrentIndex(0);
   }
 
-  function prevTrack() {
-    setCurrentIndex((i) => (i - 1 + tracks.length) % tracks.length);
-  }
+  function prevTrack() { setCurrentIndex((i) => (i - 1 + tracks.length) % tracks.length); }
 
-  async function handleJoin(playerName: string) {
+  async function handleJoin() {
+    if (!nameValue.trim()) return;
     setSubmitting(true);
-    const ok = await join(playerName);
+    await join(nameValue);
     setSubmitting(false);
-    return ok;
   }
 
-  // Name entry screen
   if (participantLoading) return null;
 
   if (!participantId) {
     return (
-      <View className="stage-shell mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-6 px-5 py-8">
-        <View className="music-panel-strong rounded-2xl p-6 items-center">
-          <View className="record-mark mx-auto mb-6" />
-          <Text className="music-kicker mb-2">MT Toolkit</Text>
-          <Text className="stage-title text-4xl font-black text-white text-center">
-            What's your name?
-          </Text>
-        </View>
-        <View className="music-panel rounded-2xl p-5">
-          <NameInput onSubmit={handleJoin} submitting={submitting} />
-        </View>
-      </View>
+      <Screen>
+        <Shell style={{ justifyContent: 'center' }}>
+          <PanelStrong style={{ alignItems: 'center', paddingVertical: 32 }}>
+            <Text style={s.emoji}>🎧</Text>
+            <Kicker>MT Toolkit</Kicker>
+            <Text style={s.bigTitle}>What's your name?</Text>
+          </PanelStrong>
+          <Panel style={{ gap: 12 }}>
+            <StyledInput value={nameValue} onChangeText={setNameValue} placeholder="Your name" maxLength={32} autoFocus onSubmitEditing={handleJoin} />
+            <GlowButton onPress={handleJoin} disabled={submitting || !nameValue.trim()}>
+              <Text style={s.btnText}>{submitting ? 'Joining…' : "Let's go"}</Text>
+            </GlowButton>
+          </Panel>
+        </Shell>
+      </Screen>
     );
   }
 
-  // Playlist selection screen
   if (!selectedGenre) {
     return (
-      <View className="stage-shell mx-auto flex min-h-screen w-full max-w-md flex-col gap-6 px-5 py-8">
-        <View className="music-panel-strong rounded-2xl p-6">
-          <Text className="music-kicker">MT Toolkit</Text>
-          <Text className="stage-title mt-2 text-4xl leading-tight font-black text-white">
-            Pick your vibe, {name}
-          </Text>
-        </View>
-        <View className="gap-3">
-          {genres.map((genre) => (
-            <Pressable
-              key={genre.id}
-              onPress={() => selectGenre(genre)}
-              className="music-panel flex-row items-center gap-4 rounded-2xl px-6 py-6 active:scale-95"
-            >
-              <View className="icon-tile">
-                <Svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width={28} height={28}>
-                  <Path d="M9 18V5l11-2v13" strokeWidth={2.25} strokeLinejoin="round" />
-                  <Circle cx={6} cy={18} r={3} strokeWidth={2.25} />
-                  <Circle cx={17} cy={16} r={3} strokeWidth={2.25} />
-                </Svg>
-              </View>
-              <Text className="text-2xl font-black text-white tracking-tight">{genre.name}</Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
+      <Screen>
+        <Shell>
+          <PanelStrong>
+            <Kicker>MT Toolkit</Kicker>
+            <Text style={s.bigTitle}>Pick your vibe,{'\n'}{name}</Text>
+          </PanelStrong>
+          <View style={{ gap: 10 }}>
+            {genres.map((genre) => (
+              <Pressable key={genre.id} onPress={() => selectGenre(genre)} style={({ pressed }) => [s.genreRow, pressed && { opacity: 0.8 }]}>
+                <IconTile>
+                  <Svg viewBox="0 0 24 24" fill="none" stroke="#fff" width={26} height={26}>
+                    <Path d="M9 18V5l11-2v13" strokeWidth={2.25} strokeLinejoin="round" />
+                    <Circle cx={6} cy={18} r={3} strokeWidth={2.25} />
+                    <Circle cx={17} cy={16} r={3} strokeWidth={2.25} />
+                  </Svg>
+                </IconTile>
+                <Text style={s.genreName}>{genre.name}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </Shell>
+      </Screen>
     );
   }
 
-  // Loading tracks
   if (tracks.length === 0) {
     return (
-      <View className="stage-shell flex min-h-screen items-center justify-center">
-        <Text className="text-zinc-400">Loading tracks...</Text>
-      </View>
+      <Screen>
+        <Shell style={{ justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ color: '#71717a' }}>Loading tracks…</Text>
+        </Shell>
+      </Screen>
     );
   }
 
-  // Now playing screen
+  const isPlaying = playbackState === 'playing';
+  const isEnded = playbackState === 'ended';
+
   return (
-    <View className="stage-shell mx-auto flex min-h-screen w-full max-w-md flex-col justify-between gap-8 px-5 py-8">
-      <View>
-        <Text className="music-kicker">MT Toolkit</Text>
-        <Text className="mt-1 text-sm text-zinc-400">{selectedGenre.name}</Text>
-      </View>
-
-      <View className="music-panel-strong rounded-2xl p-6">
-        {playbackState === 'playing' ? (
-          <Text className="music-kicker text-emerald-300">Now playing</Text>
-        ) : playbackState === 'ended' ? (
-          <Text className="music-kicker text-zinc-500">Session ended</Text>
-        ) : (
-          <Text className="music-kicker text-zinc-500">Waiting for host...</Text>
-        )}
-        <Text className="stage-title mt-3 text-3xl leading-tight font-black text-white">
-          {tracks[currentIndex].title}
-        </Text>
-        <Text className="text-sm text-zinc-500">
-          Track {currentIndex + 1} of {tracks.length}
-        </Text>
-      </View>
-
-      <View className="gap-6">
-        <View className="flex-row gap-4">
-          <Pressable
-            onPress={prevTrack}
-            className="music-panel flex-1 items-center justify-center rounded-2xl py-5 active:scale-95"
-          >
-            <Text className="text-lg font-bold text-white">Prev</Text>
-          </Pressable>
-          <Pressable
-            onPress={nextTrack}
-            className="music-panel flex-1 items-center justify-center rounded-2xl py-5 active:scale-95"
-          >
-            <Text className="text-lg font-bold text-white">Skip</Text>
-          </Pressable>
+    <Screen>
+      <Shell style={{ justifyContent: 'space-between' }}>
+        <View>
+          <Kicker>MT Toolkit</Kicker>
+          <Text style={s.genreTag}>{selectedGenre.name}</Text>
         </View>
 
-        <Pressable
-          onPress={() => {
-            setSelectedGenre(null);
-            setTracks([]);
-          }}
-        >
-          <Text className="text-sm text-zinc-500 underline underline-offset-4">Change playlist</Text>
-        </Pressable>
-      </View>
-    </View>
+        <PanelStrong>
+          <Kicker style={{ color: isEnded ? '#52525b' : isPlaying ? '#34d399' : '#71717a' }}>
+            {isEnded ? 'Session ended' : isPlaying ? 'Now playing' : 'Waiting for host…'}
+          </Kicker>
+          <Text style={s.trackTitle}>{tracks[currentIndex].title}</Text>
+          <Text style={s.trackCount}>Track {currentIndex + 1} of {tracks.length}</Text>
+        </PanelStrong>
+
+        <View style={{ gap: 14 }}>
+          <View style={s.navRow}>
+            <Pressable onPress={prevTrack} style={s.navBtn}>
+              <Text style={s.navBtnText}>← Prev</Text>
+            </Pressable>
+            <Pressable onPress={nextTrack} style={s.navBtn}>
+              <Text style={s.navBtnText}>Skip →</Text>
+            </Pressable>
+          </View>
+          <Pressable onPress={() => { setSelectedGenre(null); setTracks([]); }} style={{ alignSelf: 'center' }}>
+            <Text style={s.changeLink}>Change playlist</Text>
+          </Pressable>
+        </View>
+      </Shell>
+    </Screen>
   );
 }
 
-// Inline name input component
-function NameInput({ onSubmit, submitting }: { onSubmit: (name: string) => Promise<boolean>; submitting: boolean }) {
-  const [value, setValue] = useState('');
-  const { TextInput } = require('react-native');
+const PANEL_BG = 'rgba(18,18,31,0.88)';
+const PANEL_BORDER = 'rgba(255,255,255,0.10)';
 
-  return (
-    <View className="gap-4">
-      <TextInput
-        value={value}
-        onChangeText={setValue}
-        placeholder="Your name"
-        placeholderTextColor="#52525b"
-        maxLength={32}
-        autoFocus
-        onSubmitEditing={() => value.trim() && onSubmit(value)}
-        className="w-full rounded-xl border-2 border-white/10 bg-black/30 px-6 py-4 text-center text-2xl font-bold text-white focus:border-cyan-300"
-      />
-      <Pressable
-        onPress={() => value.trim() && onSubmit(value)}
-        disabled={submitting || !value.trim()}
-        className={`primary-glow w-full rounded-xl py-4 items-center ${!value.trim() || submitting ? 'opacity-30' : ''}`}
-      >
-        <Text className="text-lg font-black text-white">
-          {submitting ? 'Joining...' : "Let's go"}
-        </Text>
-      </Pressable>
-    </View>
-  );
-}
+const s = StyleSheet.create({
+  emoji: { fontSize: 48, marginBottom: 12, textAlign: 'center' },
+  bigTitle: { color: '#fff', fontSize: 34, fontWeight: '900', marginTop: 4 },
+  btnText: { color: '#fff', fontSize: 18, fontWeight: '900' },
+  genreRow: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: PANEL_BG, borderRadius: 18, borderWidth: 1, borderColor: PANEL_BORDER, paddingHorizontal: 18, paddingVertical: 18 },
+  genreName: { color: '#fff', fontSize: 22, fontWeight: '900' },
+  genreTag: { color: '#71717a', fontSize: 13, marginTop: 2 },
+  trackTitle: { color: '#fff', fontSize: 28, fontWeight: '900', marginTop: 6, lineHeight: 34 },
+  trackCount: { color: '#52525b', fontSize: 13, marginTop: 4 },
+  navRow: { flexDirection: 'row', gap: 10 },
+  navBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 16, borderWidth: 1, borderColor: PANEL_BORDER, backgroundColor: PANEL_BG, paddingVertical: 18 },
+  navBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  changeLink: { color: '#52525b', fontSize: 13, textDecorationLine: 'underline' },
+});
