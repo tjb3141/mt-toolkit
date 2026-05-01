@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { HomeButton } from '@/components/HomeButton';
+import { C } from '@/components/ui';
 
 type Track = { id: string; title: string; storage_path: string; duration_seconds: number | null };
 type Genre = { id: string; name: string; display_order: number; tracks?: Track[] };
@@ -232,27 +233,28 @@ export default function AdminPage() {
   // LOCKED
   if (!unlocked) {
     return (
-      <ScrollView className="stage-shell mx-auto max-w-3xl p-5">
-        <View className="music-panel-strong mb-6 flex-row items-center justify-between gap-4 rounded-2xl p-5">
-          <View>
-            <Text className="music-kicker mb-2">Backstage</Text>
-            <Text className="stage-title text-3xl font-black text-white">Music Library</Text>
-            <Text className="mt-1 text-sm text-zinc-300">Tracks, playlists, and active rooms.</Text>
+      <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent}>
+        <View style={s.heroPanel}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.kicker}>Backstage</Text>
+            <Text style={s.heroTitle}>Music Library</Text>
+            <Text style={s.heroSub}>Tracks, playlists, and active rooms.</Text>
           </View>
           <HomeButton />
         </View>
-        <View className="music-panel max-w-sm gap-4 rounded-2xl p-5">
-          <Text className="text-sm font-medium text-zinc-300">Admin secret</Text>
+        <View style={[s.panel, s.loginPanel]}>
+          <Text style={s.fieldLabel}>Admin secret</Text>
           <TextInput
             value={secret}
             onChangeText={setSecret}
             secureTextEntry
             autoComplete="current-password"
             onSubmitEditing={unlock}
-            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 font-mono text-sm text-white"
+            placeholderTextColor="#52525b"
+            style={s.textInput}
           />
-          <Pressable onPress={unlock} disabled={loading} className={`primary-glow rounded-xl px-4 py-3 items-center ${loading ? 'opacity-50' : ''}`}>
-            <Text className="text-sm font-black text-white">{loading ? 'Loading...' : 'Unlock'}</Text>
+          <Pressable onPress={unlock} disabled={loading} style={[s.btn, loading && s.btnDisabled]}>
+            <Text style={s.btnText}>{loading ? 'Loading...' : 'Unlock'}</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -261,42 +263,47 @@ export default function AdminPage() {
 
   // UNLOCKED
   return (
-    <ScrollView className="stage-shell mx-auto max-w-3xl p-5" contentContainerClassName="gap-6">
-      <View className="music-panel-strong flex-row items-center justify-between gap-4 rounded-2xl p-5">
-        <View>
-          <Text className="music-kicker mb-2">Backstage</Text>
-          <Text className="stage-title text-3xl font-black text-white">Music Library</Text>
-          <Text className="mt-1 text-sm text-zinc-300">Tracks, playlists, and active rooms.</Text>
+    <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent}>
+      {/* Header */}
+      <View style={s.heroPanel}>
+        <View style={{ flex: 1 }}>
+          <Text style={s.kicker}>Backstage</Text>
+          <Text style={s.heroTitle}>Music Library</Text>
+          <Text style={s.heroSub}>Tracks, playlists, and active rooms.</Text>
         </View>
         <HomeButton />
       </View>
 
       {/* New playlist */}
-      <View className="music-panel flex-row gap-2 rounded-2xl p-4">
+      <View style={[s.panel, s.row]}>
         <TextInput
           value={newGenreName}
           onChangeText={setNewGenreName}
           placeholder="New playlist name..."
-          placeholderTextColor="#71717a"
+          placeholderTextColor="#52525b"
           onSubmitEditing={createGenre}
-          className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white"
+          style={[s.textInput, { flex: 1, textAlign: 'left', fontSize: 14, paddingVertical: 10 }]}
         />
-        <Pressable onPress={createGenre} disabled={creatingGenre || !newGenreName.trim()} className={`primary-glow rounded-xl px-4 py-2 items-center ${creatingGenre || !newGenreName.trim() ? 'opacity-40' : ''}`}>
-          <Text className="text-sm font-black text-white">{creatingGenre ? 'Creating...' : '+ Playlist'}</Text>
+        <Pressable
+          onPress={createGenre}
+          disabled={creatingGenre || !newGenreName.trim()}
+          style={[s.btn, (creatingGenre || !newGenreName.trim()) && s.btnDisabled, { paddingHorizontal: 16, paddingVertical: 10 }]}
+        >
+          <Text style={s.btnText}>{creatingGenre ? 'Creating...' : '+ Playlist'}</Text>
         </Pressable>
       </View>
 
       {/* Playlist list */}
       {genres.length === 0 ? (
-        <Text className="text-sm text-zinc-400">No playlists yet.</Text>
+        <Text style={s.mutedText}>No playlists yet.</Text>
       ) : (
-        <View className="music-panel rounded-2xl overflow-hidden">
+        <View style={[s.panel, { padding: 0, overflow: 'hidden' }]}>
           {genres.map((genre, idx) => (
-            <View key={genre.id} className={idx > 0 ? 'border-t border-white/10' : ''}>
+            <View key={genre.id} style={idx > 0 ? s.divider : undefined}>
               {/* Genre row */}
-              <View className="flex-row items-center gap-2 px-4 py-3">
-                <Pressable onPress={() => togglePlaylist(genre.id)} className={`mr-1 ${expandedIds.has(genre.id) ? 'rotate-90' : ''}`}>
-                  <Text className="text-zinc-400">▶</Text>
+              <View style={[s.row, { paddingHorizontal: 16, paddingVertical: 12 }]}>
+                <Pressable onPress={() => togglePlaylist(genre.id)} style={{ marginRight: 4 }}>
+                  <Text style={{ color: '#71717a', fontSize: 12 }}>{expandedIds.has(genre.id) ? '▼' : '▶'}</Text>
                 </Pressable>
 
                 {editingGenreId === genre.id ? (
@@ -305,24 +312,24 @@ export default function AdminPage() {
                       value={editingGenreName}
                       onChangeText={setEditingGenreName}
                       onSubmitEditing={() => saveGenreName(genre.id)}
-                      className="flex-1 rounded border border-zinc-600 bg-zinc-800 px-2 py-1 text-sm font-semibold text-white"
+                      style={[s.textInput, { flex: 1, fontSize: 14, paddingVertical: 6, textAlign: 'left' }]}
                     />
-                    <Pressable onPress={() => saveGenreName(genre.id)}>
-                      <Text className="text-sm text-emerald-400">Save</Text>
+                    <Pressable onPress={() => saveGenreName(genre.id)} style={{ marginLeft: 8 }}>
+                      <Text style={s.saveText}>Save</Text>
                     </Pressable>
-                    <Pressable onPress={() => setEditingGenreId(null)}>
-                      <Text className="text-sm text-zinc-400">Cancel</Text>
+                    <Pressable onPress={() => setEditingGenreId(null)} style={{ marginLeft: 8 }}>
+                      <Text style={s.mutedText}>Cancel</Text>
                     </Pressable>
                   </>
                 ) : (
                   <>
-                    <Text className="flex-1 font-semibold text-white">{genre.name}</Text>
-                    <Text className="text-xs text-zinc-500">{trackCount(genre)} tracks</Text>
-                    <Pressable onPress={() => { setEditingGenreId(genre.id); setEditingGenreName(genre.name); }}>
-                      <Text className="text-xs text-zinc-400">Rename</Text>
+                    <Text style={[s.bodyText, { flex: 1, fontWeight: '600' }]}>{genre.name}</Text>
+                    <Text style={[s.mutedText, { fontSize: 12 }]}>{trackCount(genre)} tracks</Text>
+                    <Pressable onPress={() => { setEditingGenreId(genre.id); setEditingGenreName(genre.name); }} style={{ marginLeft: 8 }}>
+                      <Text style={[s.mutedText, { fontSize: 12 }]}>Rename</Text>
                     </Pressable>
-                    <Pressable onPress={() => deleteGenre(genre.id, genre.name)}>
-                      <Text className="text-xs text-red-400">Delete</Text>
+                    <Pressable onPress={() => deleteGenre(genre.id, genre.name)} style={{ marginLeft: 8 }}>
+                      <Text style={[s.deleteText, { fontSize: 12 }]}>Delete</Text>
                     </Pressable>
                   </>
                 )}
@@ -330,41 +337,41 @@ export default function AdminPage() {
 
               {/* Expanded: tracks + upload */}
               {expandedIds.has(genre.id) && (
-                <View className="border-t border-white/10 bg-black/20 px-4 py-3">
+                <View style={[s.divider, { backgroundColor: 'rgba(0,0,0,0.2)', paddingHorizontal: 16, paddingVertical: 12 }]}>
                   {loadingTracksFor === genre.id ? (
-                    <Text className="text-sm text-zinc-400">Loading...</Text>
+                    <Text style={s.mutedText}>Loading...</Text>
                   ) : !genre.tracks || genre.tracks.length === 0 ? (
-                    <Text className="mb-3 text-sm text-zinc-400">No tracks yet.</Text>
+                    <Text style={[s.mutedText, { marginBottom: 12 }]}>No tracks yet.</Text>
                   ) : (
-                    <View className="mb-4 gap-0.5">
+                    <View style={{ marginBottom: 16, gap: 2 }}>
                       {genre.tracks.map((track) => (
-                        <View key={track.id} className="flex-row items-center gap-2 rounded px-2 py-1.5">
+                        <View key={track.id} style={[s.row, { paddingHorizontal: 8, paddingVertical: 6 }]}>
                           {editingTrackId === track.id ? (
                             <>
                               <TextInput
                                 value={editingTrackTitle}
                                 onChangeText={setEditingTrackTitle}
                                 onSubmitEditing={() => saveTrackTitle(genre.id, track.id)}
-                                className="flex-1 rounded border border-zinc-600 bg-zinc-800 px-2 py-1 text-sm text-white"
+                                style={[s.textInput, { flex: 1, fontSize: 13, paddingVertical: 4, textAlign: 'left' }]}
                               />
-                              <Pressable onPress={() => saveTrackTitle(genre.id, track.id)}>
-                                <Text className="text-xs text-emerald-400">Save</Text>
+                              <Pressable onPress={() => saveTrackTitle(genre.id, track.id)} style={{ marginLeft: 8 }}>
+                                <Text style={[s.saveText, { fontSize: 12 }]}>Save</Text>
                               </Pressable>
-                              <Pressable onPress={() => setEditingTrackId(null)}>
-                                <Text className="text-xs text-zinc-400">Cancel</Text>
+                              <Pressable onPress={() => setEditingTrackId(null)} style={{ marginLeft: 8 }}>
+                                <Text style={[s.mutedText, { fontSize: 12 }]}>Cancel</Text>
                               </Pressable>
                             </>
                           ) : (
                             <>
-                              <Text className="flex-1 text-sm text-zinc-100" numberOfLines={1}>{track.title}</Text>
-                              {track.duration_seconds && (
-                                <Text className="text-xs text-zinc-500">{track.duration_seconds}s</Text>
+                              <Text style={[s.bodyText, { flex: 1, fontSize: 13 }]} numberOfLines={1}>{track.title}</Text>
+                              {track.duration_seconds != null && (
+                                <Text style={[s.mutedText, { fontSize: 12 }]}>{track.duration_seconds}s</Text>
                               )}
-                              <Pressable onPress={() => { setEditingTrackId(track.id); setEditingTrackTitle(track.title); }}>
-                                <Text className="text-xs text-zinc-400">Rename</Text>
+                              <Pressable onPress={() => { setEditingTrackId(track.id); setEditingTrackTitle(track.title); }} style={{ marginLeft: 8 }}>
+                                <Text style={[s.mutedText, { fontSize: 12 }]}>Rename</Text>
                               </Pressable>
-                              <Pressable onPress={() => deleteTrack(genre.id, track.id, track.title)}>
-                                <Text className="text-xs text-red-400">Delete</Text>
+                              <Pressable onPress={() => deleteTrack(genre.id, track.id, track.title)} style={{ marginLeft: 8 }}>
+                                <Text style={[s.deleteText, { fontSize: 12 }]}>Delete</Text>
                               </Pressable>
                             </>
                           )}
@@ -373,8 +380,8 @@ export default function AdminPage() {
                     </View>
                   )}
 
-                  {/* Upload — web only using native input */}
-                  <View className="flex-row items-center gap-2">
+                  {/* Upload — web only */}
+                  <View style={[s.row, { gap: 8 }]}>
                     <input
                       type="file"
                       accept="audio/mpeg,.mp3"
@@ -382,21 +389,25 @@ export default function AdminPage() {
                       ref={(el) => { fileInputRefs.current[genre.id] = el; }}
                       style={{ flex: 1, fontSize: 12, color: '#d4d4d8' }}
                     />
-                    <Pressable onPress={() => uploadToGenre(genre.id, genre.name)} disabled={uploading} className={`rounded bg-indigo-600 px-3 py-1.5 ${uploading ? 'opacity-40' : ''}`}>
-                      <Text className="text-xs font-semibold text-white">Upload</Text>
+                    <Pressable
+                      onPress={() => uploadToGenre(genre.id, genre.name)}
+                      disabled={uploading}
+                      style={[s.btn, uploading && s.btnDisabled, { paddingHorizontal: 12, paddingVertical: 6 }]}
+                    >
+                      <Text style={[s.btnText, { fontSize: 12 }]}>Upload</Text>
                     </Pressable>
                   </View>
 
                   {/* Upload results */}
                   {uploadResults[genre.id]?.length > 0 && (
-                    <View className="mt-2 gap-1">
+                    <View style={{ marginTop: 8, gap: 4 }}>
                       {uploadResults[genre.id].map((r, i) => (
-                        <View key={i} className="flex-row items-center gap-2">
-                          <Text className={`text-xs ${r.status === 'done' ? 'text-emerald-400' : r.status === 'error' ? 'text-red-400' : r.status === 'uploading' ? 'text-blue-400' : 'text-zinc-500'}`}>
+                        <View key={i} style={[s.row, { gap: 8 }]}>
+                          <Text style={{ fontSize: 12, color: r.status === 'done' ? '#34d399' : r.status === 'error' ? '#f87171' : r.status === 'uploading' ? '#60a5fa' : '#71717a' }}>
                             {r.status === 'done' ? '✓' : r.status === 'error' ? '✗' : r.status === 'uploading' ? '↑' : '–'}
                           </Text>
-                          <Text className="flex-1 text-xs text-zinc-300" numberOfLines={1}>{r.name}</Text>
-                          {r.message ? <Text className="text-xs text-zinc-500">{r.message}</Text> : null}
+                          <Text style={[s.bodyText, { flex: 1, fontSize: 12 }]} numberOfLines={1}>{r.name}</Text>
+                          {r.message ? <Text style={[s.mutedText, { fontSize: 12 }]}>{r.message}</Text> : null}
                         </View>
                       ))}
                     </View>
@@ -409,29 +420,29 @@ export default function AdminPage() {
       )}
 
       {/* Active sessions */}
-      <View className="music-panel rounded-2xl p-5">
-        <View className="flex-row items-center gap-4 mb-4">
-          <Text className="text-lg font-bold text-white">Active Sessions</Text>
-          <Pressable onPress={loadSessions} disabled={loadingSessions} className={`rounded bg-zinc-700 px-3 py-1 ${loadingSessions ? 'opacity-40' : ''}`}>
-            <Text className="text-xs font-semibold text-white">{loadingSessions ? 'Loading...' : 'Refresh'}</Text>
+      <View style={[s.panel, { padding: 20 }]}>
+        <View style={[s.row, { marginBottom: 16 }]}>
+          <Text style={[s.bodyText, { flex: 1, fontSize: 18, fontWeight: '700' }]}>Active Sessions</Text>
+          <Pressable onPress={loadSessions} disabled={loadingSessions} style={[s.btnSecondary, loadingSessions && s.btnDisabled]}>
+            <Text style={[s.btnText, { fontSize: 12 }]}>{loadingSessions ? 'Loading...' : 'Refresh'}</Text>
           </Pressable>
         </View>
         {sessions.length === 0 ? (
-          <Text className="text-sm text-zinc-500">No active sessions. Hit Refresh to load.</Text>
+          <Text style={s.mutedText}>No active sessions. Hit Refresh to load.</Text>
         ) : (
-          <View className="rounded-2xl border border-white/10 overflow-hidden">
-            {sessions.map((s, idx) => (
-              <View key={s.id} className={`flex-row items-center gap-3 px-4 py-3 ${idx > 0 ? 'border-t border-white/10' : ''}`}>
-                <Text className="font-mono text-lg font-bold tracking-widest text-white">{s.code}</Text>
-                <View className="rounded bg-zinc-800 px-2 py-0.5">
-                  <Text className="text-xs text-zinc-400">{s.mode}</Text>
+          <View style={[{ borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', overflow: 'hidden' }]}>
+            {sessions.map((session, idx) => (
+              <View key={session.id} style={[s.row, { paddingHorizontal: 16, paddingVertical: 12, gap: 12 }, idx > 0 && s.divider]}>
+                <Text style={{ fontFamily: 'monospace', fontSize: 18, fontWeight: '700', color: '#fff', letterSpacing: 4 }}>{session.code}</Text>
+                <View style={{ backgroundColor: '#27272a', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 }}>
+                  <Text style={[s.mutedText, { fontSize: 12 }]}>{session.mode}</Text>
                 </View>
-                <Text className="text-xs text-zinc-400">{s.participant_count} participants</Text>
-                <Text className="flex-1 text-xs text-zinc-500">
-                  expires {new Date(s.expires_at).toLocaleTimeString()}
+                <Text style={[s.mutedText, { fontSize: 12 }]}>{session.participant_count} participants</Text>
+                <Text style={[s.mutedText, { flex: 1, fontSize: 12 }]}>
+                  expires {new Date(session.expires_at).toLocaleTimeString()}
                 </Text>
-                <Pressable onPress={() => endSession(s.id, s.code)}>
-                  <Text className="text-xs text-red-400">End</Text>
+                <Pressable onPress={() => endSession(session.id, session.code)}>
+                  <Text style={[s.deleteText, { fontSize: 12 }]}>End</Text>
                 </Pressable>
               </View>
             ))}
@@ -441,3 +452,72 @@ export default function AdminPage() {
     </ScrollView>
   );
 }
+
+const s = StyleSheet.create({
+  scroll: { flex: 1 },
+  scrollContent: {
+    maxWidth: 768,
+    width: '100%',
+    alignSelf: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+    gap: 16,
+  },
+  heroPanel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(27,25,44,0.92)',
+    padding: 20,
+  },
+  panel: {
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: C.panelBg,
+    padding: 16,
+  },
+  loginPanel: { maxWidth: 400, gap: 12 },
+  kicker: { color: C.kickerColor, fontSize: 11, fontWeight: '900', letterSpacing: 4, textTransform: 'uppercase', marginBottom: 6 },
+  heroTitle: { color: '#fff', fontSize: 28, fontWeight: '900' },
+  heroSub: { color: '#a1a1aa', fontSize: 13, marginTop: 4 },
+  fieldLabel: { color: '#a1a1aa', fontSize: 13, fontWeight: '500' },
+  textInput: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: '#fff',
+    fontSize: 14,
+    width: '100%',
+  },
+  btn: {
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#7c3aed',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnSecondary: {
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#3f3f46',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnDisabled: { opacity: 0.4 },
+  btnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  divider: { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' },
+  bodyText: { color: '#e4e4e7', fontSize: 14 },
+  mutedText: { color: '#71717a', fontSize: 13 },
+  saveText: { color: '#34d399', fontSize: 13 },
+  deleteText: { color: '#f87171', fontSize: 13 },
+});

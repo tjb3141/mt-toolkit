@@ -120,7 +120,7 @@ export default function FreezeDanceHostControls({ session }: ModeProps) {
   if (localPhase === 'lobby') {
     return (
       <Screen>
-        <ScrollView contentContainerStyle={s.scrollContent}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scrollContent}>
           <View style={s.topBar}>
             <Kicker style={{ marginBottom: 0 }}>Freeze Dance Host</Kicker>
             <HomeButton />
@@ -155,7 +155,7 @@ export default function FreezeDanceHostControls({ session }: ModeProps) {
   if (localPhase === 'setup') {
     return (
       <Screen>
-        <ScrollView contentContainerStyle={s.scrollContent}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scrollContent}>
           <View style={s.topBar}>
             <View>
               <Kicker style={{ marginBottom: 0 }}>Freeze Dance Host</Kicker>

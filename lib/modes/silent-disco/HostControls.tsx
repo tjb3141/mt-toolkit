@@ -41,7 +41,7 @@ export default function SilentDiscoHostControls({ session }: ModeProps) {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={s.scrollContent}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scrollContent}>
         <View style={s.topBar}>
           <Kicker style={{ marginBottom: 0 }}>Silent Disco Host</Kicker>
           <HomeButton />

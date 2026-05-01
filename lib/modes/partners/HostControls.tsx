@@ -160,7 +160,7 @@ export default function PartnersHostControls({ session }: ModeProps) {
   if (localPhase === 'lobby') {
     return (
       <Screen>
-        <ScrollView contentContainerStyle={s.scroll}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scroll}>
           <View style={s.topBar}><Kicker style={{ marginBottom: 0 }}>Partners Host</Kicker><HomeButton /></View>
           <PanelStrong style={{ alignItems: 'center' }}>
             <Kicker>Room Code</Kicker>
@@ -193,7 +193,7 @@ export default function PartnersHostControls({ session }: ModeProps) {
   if (localPhase === 'assigning') {
     return (
       <Screen>
-        <ScrollView contentContainerStyle={s.scroll}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scroll}>
           <View style={s.topBar}>
             <View>
               <Kicker style={{ marginBottom: 0 }}>Partners Host</Kicker>
@@ -260,7 +260,7 @@ export default function PartnersHostControls({ session }: ModeProps) {
   // PLAYING
   return (
     <Screen>
-      <ScrollView contentContainerStyle={s.scroll}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scroll}>
         <View style={s.topBar}>
           <Kicker style={{ marginBottom: 0 }}>Find Your Match</Kicker>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>

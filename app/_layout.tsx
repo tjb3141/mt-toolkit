@@ -9,7 +9,7 @@ export default function RootLayout() {
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: '#080710' },
+          contentStyle: { backgroundColor: '#080710', overflow: 'auto' as any },
         }}
       />
     </>

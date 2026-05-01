@@ -100,7 +100,7 @@ export default function ImposterHostControls({ session }: ModeProps) {
   if (localPhase === 'lobby') {
     return (
       <Screen>
-        <ScrollView contentContainerStyle={s.scroll}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scroll}>
           <View style={s.topBar}><Kicker style={{ marginBottom: 0 }}>Imposter Host</Kicker><HomeButton /></View>
           <PanelStrong style={{ alignItems: 'center' }}>
             <Kicker>Room Code</Kicker>
@@ -132,7 +132,7 @@ export default function ImposterHostControls({ session }: ModeProps) {
     const canStart = !!townPlaylistId && !!imposterPlaylistId && !(assignmentMode === 'manual' && !selectedImposterId);
     return (
       <Screen>
-        <ScrollView contentContainerStyle={s.scroll}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scroll}>
           <View style={s.topBar}>
             <View>
               <Kicker style={{ marginBottom: 0 }}>Imposter Host</Kicker>
@@ -197,7 +197,7 @@ export default function ImposterHostControls({ session }: ModeProps) {
   if (localPhase === 'playing') {
     return (
       <Screen>
-        <ScrollView contentContainerStyle={s.scroll}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scroll}>
           <View style={s.topBar}>
             <View>
               <Kicker style={{ marginBottom: 0 }}>Imposter Host</Kicker>
@@ -239,7 +239,7 @@ export default function ImposterHostControls({ session }: ModeProps) {
   // REVEALED
   return (
     <Screen>
-      <ScrollView contentContainerStyle={s.scroll}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scroll}>
         <View style={s.topBar}><Kicker style={{ marginBottom: 0 }}>Imposter Host — Revealed</Kicker><HomeButton /></View>
         <PanelStrong style={{ alignItems: 'center', paddingVertical: 36 }}>
           <Kicker>The imposter was…</Kicker>
