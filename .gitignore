@@ -1,12 +1,10 @@
-node_modules
+node_modules/
 
-# Output
-.output
-.vercel
-.netlify
-.wrangler
-/.svelte-kit
-/build
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
 
 # OS
 .DS_Store
@@ -26,8 +24,7 @@ ingestion/venv/
 ingestion/__pycache__/
 *.pyc
 
-# Vite
-vite.config.js.timestamp-*
-vite.config.ts.timestamp-*
+# Misc
 Silent Disco Notes.txt
 *.mp3
+github_pat.txt
