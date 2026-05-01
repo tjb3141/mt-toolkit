@@ -10,6 +10,17 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   scheme: 'mt-toolkit',
   userInterfaceStyle: 'dark',
   newArchEnabled: true,
+  ios: {
+    bundleIdentifier: 'com.tjb3141.mttoolkit',
+    supportsTablet: false,
+  },
+  android: {
+    package: 'com.tjb3141.mttoolkit',
+    adaptiveIcon: {
+      foregroundImage: './assets/favicon.png',
+      backgroundColor: '#070712',
+    },
+  },
   web: {
     bundler: 'metro',
     output: 'server',
