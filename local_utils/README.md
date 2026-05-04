@@ -29,4 +29,4 @@ cd local_utils
 uvicorn app:app --reload --port 8765
 ```
 
-Open `http://localhost:8765`, download files, then upload them through `/admin`.
+Open `http://mt-toolkit.expo.app/:8765`, download files, then upload them through `/admin`.

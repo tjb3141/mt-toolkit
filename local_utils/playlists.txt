@@ -1,0 +1,18 @@
+Rock = https://open.spotify.com/playlist/1ti3v0lLrJ4KhSTuxt4loZ?si=8B5fgo61QZ66zn7OvkIp8w&pi=__S82W72TdywN
+Oldies = https://open.spotify.com/playlist/0y6Y4xgDgb2iFClbY7y3D5?si=drajxlj5S96CvrbZUaYfww&pi=j1ANVHWSRHmo5
+80s = https://open.spotify.com/playlist/70N5mgNl3QBQB09zXoa72h?si=uGNRTIn3Q7uiT9k-crfJ2A&pi=81DHG7LpQ4G4N
+90s = https://open.spotify.com/playlist/3JKjLSoo6MkZZP8HAQLlwI?si=f19lHyi2TiujnmDw2vH27Q&pi=xIXk2q-5RWKj7
+2000s = https://open.spotify.com/playlist/5kk3ET0evwGzF72pEY1FPI?si=96cq2I_4SbmrIK_o4YNxnw&pi=z95qmwAMTkWVC
+2010s = https://open.spotify.com/playlist/5XALIurWS8TuF6kk8bj438?si=LyAy2JzkTeWMCxrQdAMMMg&pi=clp10JoTRPqJD
+Pop = https://open.spotify.com/playlist/2OFfgjs6kj0eA6FNayhAAJ?si=gokohqC4QRyfYuqp8Wr9dA&pi=02I3XlO1Q0yjd
+Metal = https://open.spotify.com/playlist/1yMlpNGEpIVUIilZlrbdS0?si=bolN06zkTN6kOG1NyQKeLA&pi=OXuQmq0fRgiH6
+Jazz = https://open.spotify.com/playlist/6ylvGA8NeX2CuaeGtwHWDJ?si=7k_gAQLfTZStZJpVo2M2Uw&pi=OOFJyJDNS1SQH
+R&B = https://open.spotify.com/playlist/1nMjvFWglTkMu8uWJAagOi?si=Qoy0pC9gRjufA_-_AeGThw&pi=CCvH0eZKQIu6v
+Indie = https://open.spotify.com/playlist/0Sm64Lu6z1OK8yM3Oeo4Wx?si=oPe4mRLRTTSvX6mmQh1nEg&pi=Lsjck0FIRSmLf
+EDM = https://open.spotify.com/playlist/1dvoCOb3vso33rTd4FWqRW?si=bm_41aMaQGW04xBh5vpy3g&pi=0NG5LaqBQ669A
+Rap = https://open.spotify.com/playlist/0h9Gaqt2sNJ8M5aMV3h9BO?si=T-I3AgfrSZat4nt9OKTAGA&pi=AkBTdblbR4u7e
+Alt Rock = https://open.spotify.com/playlist/4q2NzGlz5Nn6kB6Dh2vBKX?si=vtFf8wFFQieqOA5A1b-T5w&pi=1TYbu0MhTh2cq
+Country = https://open.spotify.com/playlist/7fIdjWhWzPbf1g5OSDKOXw?si=-J3UebOhQkSHfLH3GKQ66w&pi=8qWWF_LiR86Eu
+Disco = https://open.spotify.com/playlist/1Fy5p1KbV1XBE16GKF9jOS?si=dCBrvjSjSbWMKui9SJ5dbg&pi=TsZjWunjQRqFg
+Dance Hits = https://open.spotify.com/playlist/7GQpeyLcQm7qUjCnRb24Ib?si=gck7sb8OSkCbCI4Qsqzf_w&pi=mojWoeWGRl-wF
+2020s = https://open.spotify.com/playlist/4vSTV61efRmetmaoz95Vet?si=MwVe2fMFSGSZWj0HwHcu3A&pi=l7R6dGKzQxKN6

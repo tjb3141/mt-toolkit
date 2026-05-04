@@ -1,8 +1,12 @@
 yt-dlp==2026.3.17
+python-dotenv>=1.0
+spotdl>=4.2.0
 requests==2.33.1
 playwright>=1.40
-fastapi>=0.111
-uvicorn>=0.29
+fastapi>=0.103,<0.104
+uvicorn>=0.23,<0.24
+anyio>=3.7,<4
+starlette>=0.27,<0.28
 python-multipart>=0.0.5
 pytest>=7.4.0
 pytest-asyncio>=0.20.3

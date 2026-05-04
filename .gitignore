@@ -20,8 +20,7 @@ Thumbs.db
 local_utils/venv/
 local_utils/__pycache__/
 local_utils/downloads/
-ingestion/venv/
-ingestion/__pycache__/
+
 *.pyc
 
 # Misc
@@ -31,5 +30,3 @@ github_pat.txt
 
 # Tooling
 .claude/
-.svelte-kit/
-.vercel/

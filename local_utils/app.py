@@ -1,6 +1,5 @@
 """
-Local download server — YouTube → MP3 in a local folder.
-Upload to the right genre via /admin on the web app.
+Local download server - launches bulk_download.py and streams its log.
 
     cd local_utils
     .\\venv\\Scripts\\activate
@@ -9,20 +8,17 @@ Upload to the right genre via /admin on the web app.
 Then open http://localhost:8765
 """
 
-import asyncio
 import os
-import queue
 import subprocess
-import threading
-from typing import AsyncGenerator
+import sys
+from pathlib import Path
 
-from fastapi import FastAPI, Form
+from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, StreamingResponse
 
-OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "downloads")
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-COOKIES_FILE = os.environ.get("YOUTUBE_COOKIES_FILE", "")
+SCRIPT_DIR = Path(__file__).parent
+LOG_FILE = SCRIPT_DIR / "download.log"
+BULK_SCRIPT = SCRIPT_DIR / "bulk_download.py"
 
 app = FastAPI()
 
@@ -30,73 +26,87 @@ HTML = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>MT Toolkit - Local Download</title>
+<title>MT Toolkit - Downloader</title>
 <style>
-  body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 0 16px; background:#111; color:#eee; }
-  h1 { font-size: 1.4rem; margin-bottom: 8px; }
-  p { color:#aaa; font-size:.85rem; margin-bottom:24px; }
-  label { display:block; margin-bottom:4px; font-size:.85rem; color:#aaa; }
-  input { width:100%; box-sizing:border-box; background:#222; border:1px solid #444; color:#eee;
-          padding:8px; border-radius:4px; margin-bottom:16px; font-size:.95rem; }
-  button { background:#6366f1; color:#fff; border:none; padding:10px 24px;
-           border-radius:4px; cursor:pointer; font-size:1rem; }
-  button:disabled { background:#444; cursor:default; }
-  #log { margin-top:24px; background:#000; border:1px solid #333; border-radius:4px;
-         padding:12px; font-family:monospace; font-size:.82rem; white-space:pre-wrap;
-         min-height:60px; max-height:500px; overflow-y:auto; }
+  body { font-family: sans-serif; max-width: 700px; margin: 40px auto; padding: 0 16px;
+         background: #111; color: #eee; }
+  h1 { font-size: 1.4rem; margin-bottom: 4px; }
+  p { color: #aaa; font-size: .85rem; margin-bottom: 20px; }
+  .row { display: flex; gap: 12px; align-items: center; margin-bottom: 20px; }
+  label { color: #aaa; font-size: .85rem; }
+  input[type=number] { width: 80px; background: #222; border: 1px solid #444; color: #eee;
+    padding: 7px; border-radius: 4px; font-size: .95rem; }
+  button { background: #6366f1; color: #fff; border: none; padding: 10px 24px;
+    border-radius: 4px; cursor: pointer; font-size: 1rem; }
+  button:disabled { background: #444; cursor: default; }
+  #stop { background: #7f1d1d; }
+  #stop:hover { background: #991b1b; }
+  .log { background: #000; border: 1px solid #333; border-radius: 4px; padding: 12px;
+    font-family: monospace; font-size: .8rem; white-space: pre-wrap;
+    height: 520px; overflow-y: auto; }
+  .status { font-size: .8rem; color: #666; margin-bottom: 8px; }
 </style>
 </head>
 <body>
-<h1>MT Toolkit - Local Download</h1>
-<p>Downloads MP3s to <code>local_utils/downloads/</code>. Then upload them to the right genre via /admin.</p>
-<form id="f">
-  <label>YouTube URL or playlist</label>
-  <input name="url" placeholder="https://youtube.com/playlist?list=..." required>
-  <button type="submit" id="btn">Download</button>
-</form>
-<div id="log"></div>
+<h1>MT Toolkit - Bulk Downloader</h1>
+<p>Downloads <em>N</em> random tracks from each .txt file in <code>track_txt/</code> into <code>downloads/</code>.</p>
+
+<div class="row">
+  <label>Tracks per playlist:</label>
+  <input type="number" id="count" value="200" min="1" max="1000">
+  <button id="start" onclick="startRun()">Start Download</button>
+  <button id="stop" onclick="stopRun()" disabled>Stop</button>
+</div>
+<div class="status" id="status">Idle.</div>
+<div class="log" id="log"></div>
+
 <script>
-const log = document.getElementById('log');
-const btn = document.getElementById('btn');
-document.getElementById('f').addEventListener('submit', async e => {
-  e.preventDefault();
-  btn.disabled = true;
-  btn.textContent = 'Downloading...';
-  log.textContent = '';
-  const fd = new FormData(e.target);
-  const res = await fetch('/download', { method: 'POST', body: fd });
+let running = false;
+
+async function startRun() {
+  const count = document.getElementById('count').value;
+  document.getElementById('start').disabled = true;
+  document.getElementById('stop').disabled = false;
+  document.getElementById('log').textContent = '';
+  document.getElementById('status').textContent = 'Running...';
+  running = true;
+
+  const res = await fetch('/run?count=' + count, { method: 'POST' });
+  if (!res.ok) {
+    document.getElementById('log').textContent = 'Error: ' + await res.text();
+    reset(); return;
+  }
   const reader = res.body.getReader();
   const dec = new TextDecoder();
-  while (true) {
+  const log = document.getElementById('log');
+  while (running) {
     const { done, value } = await reader.read();
     if (done) break;
     log.textContent += dec.decode(value);
     log.scrollTop = log.scrollHeight;
   }
-  btn.disabled = false;
-  btn.textContent = 'Download';
-});
+  reset();
+}
+
+async function stopRun() {
+  running = false;
+  await fetch('/stop', { method: 'POST' });
+  document.getElementById('status').textContent = 'Stopped.';
+  reset();
+}
+
+function reset() {
+  running = false;
+  document.getElementById('start').disabled = false;
+  document.getElementById('stop').disabled = true;
+  if (document.getElementById('status').textContent === 'Running...')
+    document.getElementById('status').textContent = 'Done.';
+}
 </script>
 </body>
 </html>"""
 
-
-_SENTINEL = object()
-
-
-def _run_yt_dlp(cmd: list[str], q: queue.Queue) -> None:
-    try:
-        proc = subprocess.Popen(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
-        )
-        for line in proc.stdout:
-            q.put(line)
-        proc.wait()
-        q.put(f"\nyt-dlp exited with code {proc.returncode}.\n".encode())
-    except Exception as e:
-        q.put(f"ERROR: {e}\n".encode())
-    finally:
-        q.put(_SENTINEL)
+_proc: subprocess.Popen | None = None
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -104,32 +114,38 @@ async def index():
     return HTML
 
 
-@app.post("/download")
-async def download(url: str = Form(...)):
-    async def stream() -> AsyncGenerator[bytes, None]:
-        cmd = [
-            "yt-dlp",
-            "--extract-audio",
-            "--audio-format", "mp3",
-            "--audio-quality", "128K",
-            "--output", os.path.join(OUTPUT_DIR, "%(title)s.%(ext)s"),
-            "--no-overwrites",
-            "--progress",
-        ]
-        if COOKIES_FILE and os.path.exists(COOKIES_FILE):
-            cmd += ["--cookies", COOKIES_FILE]
-        cmd.append(url)
+@app.post("/run")
+async def run(count: int = 200):
+    global _proc
+    if _proc and _proc.poll() is None:
+        return HTMLResponse("Already running.", status_code=409)
 
-        q: queue.Queue = queue.Queue()
-        threading.Thread(target=_run_yt_dlp, args=(cmd, q), daemon=True).start()
+    LOG_FILE.unlink(missing_ok=True)
+    log_fh = open(LOG_FILE, "wb")
+    _proc = subprocess.Popen(
+        [sys.executable, "-u", str(BULK_SCRIPT), "--count", str(count)],
+        stdout=log_fh,
+        stderr=log_fh,
+        env={**os.environ, "PYTHONUTF8": "1"},
+    )
 
-        loop = asyncio.get_event_loop()
-        while True:
-            chunk = await loop.run_in_executor(None, q.get)
-            if chunk is _SENTINEL:
-                break
-            yield chunk
-
-        yield b"\nDone. Files are in local_utils/downloads/ - upload them via /admin.\n"
+    def stream():
+        with open(LOG_FILE, "rb") as f:
+            while _proc.poll() is None:
+                chunk = f.read(4096)
+                if chunk:
+                    yield chunk
+                else:
+                    import time; time.sleep(0.25)
+            # flush remainder
+            yield f.read()
 
     return StreamingResponse(stream(), media_type="text/plain")
+
+
+@app.post("/stop")
+async def stop():
+    global _proc
+    if _proc and _proc.poll() is None:
+        _proc.terminate()
+    return {"ok": True}

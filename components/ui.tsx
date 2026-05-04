@@ -20,16 +20,17 @@ export const C = {
 /** Full-screen gradient background with glow blobs */
 export function Screen({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
   return (
-    <LinearGradient
-      colors={['#070712', '#101021', '#09090b']}
-      start={{ x: 0.1, y: 0 }}
-      end={{ x: 0.9, y: 1 }}
-      style={[s.screen, style]}
-    >
+    <View style={[s.screen, style]}>
+      <LinearGradient
+        colors={['#070712', '#101021', '#09090b']}
+        start={{ x: 0.1, y: 0 }}
+        end={{ x: 0.9, y: 1 }}
+        style={StyleSheet.absoluteFillObject as ViewStyle}
+      />
       <View style={s.glowCyan} />
       <View style={s.glowPink} />
       {children}
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -175,7 +176,7 @@ export function EndLink({ onPress }: { onPress: () => void }) {
 }
 
 const s = StyleSheet.create({
-  screen: { flex: 1, minHeight: '100%' as any },
+  screen: { flex: 1 },
   glowCyan: { position: 'absolute', width: 400, height: 400, borderRadius: 200, backgroundColor: 'rgba(34,211,238,0.15)', top: -120, left: -80 },
   glowPink: { position: 'absolute', width: 320, height: 320, borderRadius: 160, backgroundColor: 'rgba(244,114,182,0.12)', top: -60, right: -60 },
   shell: { flex: 1, maxWidth: 480, width: '100%', alignSelf: 'center', paddingHorizontal: 20, paddingVertical: 36, gap: 14 },

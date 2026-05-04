@@ -7,7 +7,7 @@ Usage:
 
 Examples:
     python test_silent_disco.py ABC123
-    python test_silent_disco.py ABC123 http://localhost:5173 6
+    python test_silent_disco.py ABC123 http://mt-toolkit.expo.app/:8081 6
 """
 
 import asyncio
@@ -17,21 +17,11 @@ import sys
 from playwright.async_api import async_playwright
 
 NAMES = [
-    "Alice",
-    "Bob",
-    "Charlie",
-    "Dana",
-    "Evie",
-    "Frank",
-    "Grace",
-    "Henry",
-    "Iris",
-    "Jack",
-    "Kara",
-    "Leo",
+    "Alice", "Bob", "Charlie", "Dana", "Evie", "Frank",
+    "Grace", "Henry", "Iris", "Jack", "Kara", "Leo",
 ]
 
-DEFAULT_URL = "http://localhost:5173"
+DEFAULT_URL = "http://mt-toolkit.expo.app/"
 DEFAULT_CLIENTS = 4
 
 
@@ -39,14 +29,26 @@ async def join_client(context, base_url: str, code: str, name: str, index: int):
     page = await context.new_page()
     await page.set_viewport_size({"width": 390, "height": 844})
     await page.goto(f"{base_url}/join/{code}")
+
     await page.wait_for_selector('input[placeholder="Your name"]')
     await page.fill('input[placeholder="Your name"]', name)
-    await page.click('button[type="submit"]')
+    await page.get_by_text("Let's go").first.click()
 
-    genre_buttons = page.locator("button").filter(has=page.locator("svg"))
-    genre_count = await genre_buttons.count()
-    if genre_count > 0:
-        await genre_buttons.nth(index % genre_count).click()
+    # Wait for genre picker to appear, then pick one
+    try:
+        await page.wait_for_selector('text="Pick your vibe"', timeout=5000)
+        genre_rows = page.locator('[data-testid="genre-row"]')
+        count = await genre_rows.count()
+        if count > 0:
+            await genre_rows.nth(index % count).click()
+        else:
+            # Fallback: click any pressable that isn't the join button
+            rows = page.locator('div[role="button"]')
+            row_count = await rows.count()
+            if row_count > 0:
+                await rows.nth(index % row_count).click()
+    except Exception:
+        pass
 
     print(f"  [{index + 1}] {name} joined and picked a genre")
     return page

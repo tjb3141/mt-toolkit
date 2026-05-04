@@ -6,7 +6,7 @@ Usage:
 
 Examples:
     python test_partners.py ABC123
-    python test_partners.py ABC123 http://localhost:5173
+    python test_partners.py ABC123 http://mt-toolkit.expo.app/:8081
 """
 
 import asyncio
@@ -17,16 +17,16 @@ from playwright.async_api import async_playwright
 NAMES = ["Alice", "Bob", "Charlie", "Dana", "Evie", "Frank", "Grace", "Henry",
          "Iris", "Jack", "Kara", "Leo"]
 
-DEFAULT_URL = "http://localhost:5173"
+DEFAULT_URL = "http://mt-toolkit.expo.app/"
 
 
 async def join_client(context, base_url: str, code: str, name: str, index: int):
     page = await context.new_page()
-    await page.set_viewport_size({"width": 390, "height": 844})  # iPhone-ish
+    await page.set_viewport_size({"width": 390, "height": 844})
     await page.goto(f"{base_url}/join/{code}")
     await page.wait_for_selector('input[placeholder="Your name"]')
     await page.fill('input[placeholder="Your name"]', name)
-    await page.click('button[type="submit"]')
+    await page.get_by_text("Let's go").first.click()
     print(f"  [{index + 1}] {name} joined")
     return page
 
@@ -46,11 +46,9 @@ async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=False)
 
-        contexts = []
         pages = []
         for i, name in enumerate(names):
             ctx = await browser.new_context()
-            contexts.append(ctx)
             page = await join_client(ctx, base_url, code, name, i)
             pages.append(page)
             await asyncio.sleep(0.3)

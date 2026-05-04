@@ -12,7 +12,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   newArchEnabled: true,
   ios: {
     bundleIdentifier: 'com.tjb3141.mttoolkit',
-    supportsTablet: false,
+    supportsTablet: true,
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false,
+    },
   },
   android: {
     package: 'com.tjb3141.mttoolkit',

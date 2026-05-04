@@ -120,6 +120,37 @@ export default function AdminPage() {
     setEditingGenreId(null);
   }
 
+  async function moveGenre(id: string, direction: 'up' | 'down') {
+    const idx = genres.findIndex((g) => g.id === id);
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= genres.length) return;
+
+    const a = genres[idx];
+    const b = genres[swapIdx];
+    const newOrderA = b.display_order;
+    const newOrderB = a.display_order;
+
+    setGenres((prev) => {
+      const next = [...prev];
+      next[idx] = { ...a, display_order: newOrderA };
+      next[swapIdx] = { ...b, display_order: newOrderB };
+      return next.sort((x, y) => x.display_order - y.display_order);
+    });
+
+    await Promise.all([
+      fetch(`/api/admin/playlists/${a.id}`, {
+        method: 'PATCH',
+        headers: ah(secret),
+        body: JSON.stringify({ display_order: newOrderA }),
+      }),
+      fetch(`/api/admin/playlists/${b.id}`, {
+        method: 'PATCH',
+        headers: ah(secret),
+        body: JSON.stringify({ display_order: newOrderB }),
+      }),
+    ]);
+  }
+
   async function deleteGenre(id: string, name: string) {
     if (!confirm(`Delete "${name}" and all its tracks? This cannot be undone.`)) return;
     const res = await fetch(`/api/admin/playlists/${id}`, { method: 'DELETE', headers: ah(secret) });
@@ -305,6 +336,14 @@ export default function AdminPage() {
                 <Pressable onPress={() => togglePlaylist(genre.id)} style={{ marginRight: 4 }}>
                   <Text style={{ color: '#71717a', fontSize: 12 }}>{expandedIds.has(genre.id) ? '▼' : '▶'}</Text>
                 </Pressable>
+                <View style={{ flexDirection: 'column', gap: 1, marginRight: 4 }}>
+                  <Pressable onPress={() => moveGenre(genre.id, 'up')} disabled={idx === 0} style={[s.orderBtn, idx === 0 && { opacity: 0.2 }]}>
+                    <Text style={s.orderBtnText}>▲</Text>
+                  </Pressable>
+                  <Pressable onPress={() => moveGenre(genre.id, 'down')} disabled={idx === genres.length - 1} style={[s.orderBtn, idx === genres.length - 1 && { opacity: 0.2 }]}>
+                    <Text style={s.orderBtnText}>▼</Text>
+                  </Pressable>
+                </View>
 
                 {editingGenreId === genre.id ? (
                   <>
@@ -520,4 +559,6 @@ const s = StyleSheet.create({
   mutedText: { color: '#71717a', fontSize: 13 },
   saveText: { color: '#34d399', fontSize: 13 },
   deleteText: { color: '#f87171', fontSize: 13 },
+  orderBtn: { paddingHorizontal: 3, paddingVertical: 1 },
+  orderBtnText: { color: '#52525b', fontSize: 9, lineHeight: 10 },
 });

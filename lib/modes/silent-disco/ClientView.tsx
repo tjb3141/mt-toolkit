@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { supabase } from '@/lib/supabase';
 import { useParticipant } from '@/hooks/useParticipant';
 import { useAudioPlayer } from '@/hooks/useAudioPlayer';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { useLatest } from '@/hooks/useLatest';
-import { Screen, Shell, Panel, PanelStrong, Kicker, GlowButton, IconTile, StyledInput, C } from '@/components/ui';
+import { Screen, Shell, Panel, PanelStrong, Kicker, GlowButton, IconTile, StyledInput } from '@/components/ui';
 import type { ModeProps } from '@/lib/modes';
 import type { Playlist, Track } from '@/lib/types';
 
@@ -23,10 +23,10 @@ export default function SilentDiscoClientView({ session }: ModeProps) {
   const [playbackState, setPlaybackState] = useState(session.playback_state);
   const [submitting, setSubmitting] = useState(false);
   const [nameValue, setNameValue] = useState('');
+  const [tracksLoading, setTracksLoading] = useState(false);
 
   const playbackStateRef = useLatest(playbackState);
   const tracksRef = useLatest(tracks);
-  const currentIndexRef = useLatest(currentIndex);
 
   const nextTrack = useCallback(() => { setCurrentIndex((i) => (i + 1) % tracksRef.current.length); }, []);
   const { loadTrack, play, pause } = useAudioPlayer({ loop: false, onEnd: nextTrack });
@@ -51,8 +51,10 @@ export default function SilentDiscoClientView({ session }: ModeProps) {
 
   async function selectGenre(genre: Playlist) {
     setSelectedGenre(genre);
+    setTracksLoading(true);
     if (participantId) await supabase.from('participants').update({ playlist_id: genre.id }).eq('id', participantId);
     const { data } = await supabase.from('tracks').select('id, title, storage_path, duration_seconds').eq('playlist_id', genre.id);
+    setTracksLoading(false);
     setTracks(shuffle(data ?? []));
     setCurrentIndex(0);
   }
@@ -115,11 +117,30 @@ export default function SilentDiscoClientView({ session }: ModeProps) {
     );
   }
 
-  if (tracks.length === 0) {
+  if (tracksLoading) {
     return (
       <Screen>
         <Shell style={{ justifyContent: 'center', alignItems: 'center' }}>
           <Text style={{ color: '#71717a' }}>Loading tracks…</Text>
+        </Shell>
+      </Screen>
+    );
+  }
+
+  if (selectedGenre && tracks.length === 0) {
+    return (
+      <Screen>
+        <Shell style={{ justifyContent: 'center', alignItems: 'center', gap: 16 }}>
+          <PanelStrong style={{ alignItems: 'center', width: '100%' }}>
+            <Text style={{ fontSize: 40, marginBottom: 8 }}>😕</Text>
+            <Kicker>No tracks yet</Kicker>
+            <Text style={{ color: '#a1a1aa', fontSize: 16, textAlign: 'center', marginTop: 4 }}>
+              {selectedGenre.name} has no tracks loaded.
+            </Text>
+          </PanelStrong>
+          <Pressable onPress={() => setSelectedGenre(null)} style={{ alignSelf: 'center' }}>
+            <Text style={s.changeLink}>Pick a different playlist</Text>
+          </Pressable>
         </Shell>
       </Screen>
     );

@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, ImageBackground, Platform } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
@@ -30,17 +30,19 @@ export default function Home() {
   }
 
   return (
-    <LinearGradient
-      colors={['#070712', '#101021', '#09090b']}
-      start={{ x: 0.1, y: 0 }}
-      end={{ x: 0.9, y: 1 }}
-      style={styles.root}
-    >
+    <View style={styles.root}>
+      {/* Fixed gradient background */}
+      <LinearGradient
+        colors={['#070712', '#101021', '#09090b']}
+        start={{ x: 0.1, y: 0 }}
+        end={{ x: 0.9, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
       {/* Ambient glow blobs */}
       <View style={styles.glowCyan} />
       <View style={styles.glowPink} />
 
-      <View style={styles.shell}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.shell}>
 
         {/* ── Hero panel ── */}
         <LinearGradient
@@ -135,8 +137,8 @@ export default function Home() {
           </View>
         </Pressable>
 
-      </View>
-    </LinearGradient>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -177,7 +179,6 @@ const PANEL_BORDER = 'rgba(255,255,255,0.10)';
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    minHeight: '100%' as any,
   },
   glowCyan: {
     position: 'absolute',
@@ -198,7 +199,6 @@ const styles = StyleSheet.create({
     right: -60,
   },
   shell: {
-    flex: 1,
     maxWidth: 480,
     width: '100%',
     alignSelf: 'center',

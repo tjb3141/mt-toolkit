@@ -16,6 +16,30 @@
 
 * {
   box-sizing: border-box;
+  max-width: 100%;
+}
+
+html, body {
+  overflow-x: hidden;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+  touch-action: pan-y;
+}
+
+/* Expo Router on web renders each screen inside position:fixed overflow:hidden containers.
+   Override them so mobile Safari/Chrome can scroll naturally. */
+#root,
+#root > div,
+body > div,
+[data-expo-router-root],
+[data-expo-router-root] > div {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  position: static !important;
+  height: auto !important;
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 100%;
 }
 
 body {
