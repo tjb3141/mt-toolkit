@@ -156,12 +156,13 @@ Sessions expire after 2 hours (`expires_at = now() + 2h`, set at creation). A pg
 ## Database schema
 
 ```
-sessions               — id, code (6-char), mode, playback_state (playing|paused|ended), created_at, expires_at
+sessions               — id, code (6-char), mode, playback_state (playing|paused|ended), round_active (bool), created_at, expires_at
 playlists              — id, name, display_order
-tracks                 — id, playlist_id, title, storage_path, duration_seconds
-participants           — id, session_id, name, playlist_id, current_track, joined_at
-partners_pairs         — id, session_id, participant_1_id, participant_2_id, track_id, found
-imposter_rounds        — id, session_id, round, town_playlist_id, imposter_playlist_id, imposter_participant_id, town_track_id, imposter_track_id
+tracks                 — id, title, storage_path, duration_seconds  (NO playlist_id column)
+playlist_tracks        — id, playlist_id, track_id  (join table — only way to link tracks to playlists)
+participants           — id, session_id, name, playlist_id, current_track, joined_at  (NO ready column)
+partners_pairs         — id, session_id, participant_1_id, participant_2_id, participant_3_id, track_id, found, created_at  (NO p1/p2/p3_ready columns)
+imposter_rounds        — id, session_id, round, town_playlist_id, imposter_playlist_id, imposter_participant_id, town_track_id, imposter_track_id, created_at
 freeze_dance_rounds    — id, session_id, round, track_id, created_at
 freeze_dance_eliminations — id, session_id, participant_id, created_at
 ```
