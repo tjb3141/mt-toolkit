@@ -1,0 +1,22 @@
+[Unit]
+Description=MT Toolkit Expo server
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/mt-toolkit
+EnvironmentFile=/home/pi/mt-toolkit/.env
+ExecStart=/usr/bin/node deploy/server.mjs
+Restart=on-failure
+RestartSec=3
+# Listen only on loopback; Caddy fronts the public traffic.
+Environment=HOST=127.0.0.1
+Environment=PORT=3000
+Environment=NODE_ENV=production
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

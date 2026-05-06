@@ -1,0 +1,31 @@
+# Caddy config for the Pi. Cloudflare tunnel terminates TLS, so Caddy
+# listens on plain HTTP at :80 and the tunnel routes the public
+# https://mt-toolkit.thebeacheshome.com → http://localhost:80 here.
+#
+# Replace APP_DIR if you cloned somewhere other than /home/pi/mt-toolkit.
+
+# Match the subdomain explicitly. `http://` keeps Caddy from trying to
+# fetch a TLS cert (Cloudflare already does TLS at the edge).
+http://mt-toolkit.thebeacheshome.com, http://localhost {
+	encode zstd gzip
+
+	# Static client bundle — served directly by Caddy for low latency.
+	# try_files falls back to the Node server for routes that aren't
+	# pre-rendered HTML files.
+	root * /home/pi/mt-toolkit/dist/client
+	try_files {path} {path}/ /index.html
+
+	# API routes and any non-static page handling go to the Node server.
+	@dynamic {
+		path /api/* /_expo/*
+	}
+	handle @dynamic {
+		reverse_proxy 127.0.0.1:3000
+	}
+
+	file_server
+
+	# Long-lived caching for hashed bundle assets.
+	@hashed path /_expo/static/*
+	header @hashed Cache-Control "public, max-age=31536000, immutable"
+}

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "expo start --web",
     "build": "expo export --platform web",
+    "serve": "node deploy/server.mjs",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
@@ -14,8 +15,12 @@
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
+    "@expo/server": "^0.5.0",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@supabase/supabase-js": "^2.49.4",
+    "compression": "^1.7.4",
+    "express": "^4.19.2",
+    "morgan": "^1.10.0",
     "expo": "^54",
     "expo-audio": "^55.0.14",
     "expo-constants": "~18.0.13",
