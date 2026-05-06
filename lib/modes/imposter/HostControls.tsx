@@ -23,6 +23,8 @@ export default function ImposterHostControls({ session }: ModeProps) {
   const [imposterParticipantId, setImposterParticipantId] = useState<string | null>(null);
   const [currentRoundNumber, setCurrentRoundNumber] = useState(0);
   const [playbackState, setPlaybackState] = useState(session.playback_state);
+  const [roundActive, setRoundActive] = useState(session.playback_state === 'playing');
+  const [readyIds, setReadyIds] = useState<Set<string>>(new Set());
   const [starting, setStarting] = useState(false);
 
   const joinUrl = typeof window !== 'undefined' ? `${window.location.origin}/join/${session.code}` : '';
@@ -38,7 +40,15 @@ export default function ImposterHostControls({ session }: ModeProps) {
 
   useRealtimeTable(`imposter-host:${session.id}`, [
     { event: 'INSERT', table: 'participants', filter: `session_id=eq.${session.id}`, onPayload: (p) => setParticipants((prev) => [...prev, p.new as Participant]) },
-    { event: 'UPDATE', table: 'sessions', filter: `id=eq.${session.id}`, onPayload: (p) => { setPlaybackState(p.new.playback_state); if (p.new.playback_state === 'ended') setLocalPhase('ended'); } },
+    { event: 'UPDATE', table: 'sessions', filter: `id=eq.${session.id}`, onPayload: (p) => {
+      setPlaybackState(p.new.playback_state);
+      if (p.new.round_active) setRoundActive(true);
+      if (p.new.playback_state === 'ended') setLocalPhase('ended');
+    }},
+    { event: 'UPDATE', table: 'participants', onPayload: (p) => {
+      if (p.new.session_id !== session.id) return;
+      if (p.new.ready) setReadyIds((prev) => new Set([...prev, p.new.id]));
+    }},
   ]);
 
   async function loadLatestRound() {
@@ -53,26 +63,34 @@ export default function ImposterHostControls({ session }: ModeProps) {
     if (assignmentMode === 'manual' && !selectedImposterId) return;
     setStarting(true);
     const imposterId = assignmentMode === 'auto' ? shuffle(participants)[0].id : selectedImposterId!;
-    const [{ data: townTracks }, { data: imposterTracks }] = await Promise.all([
-      supabase.from('tracks').select('id').eq('playlist_id', townPlaylistId),
-      supabase.from('tracks').select('id').eq('playlist_id', imposterPlaylistId),
+    const [{ data: townPt }, { data: imposterPt }] = await Promise.all([
+      supabase.from('playlist_tracks').select('track_id').eq('playlist_id', townPlaylistId),
+      supabase.from('playlist_tracks').select('track_id').eq('playlist_id', imposterPlaylistId),
     ]);
+    const townTracks = (townPt ?? []).map((r) => ({ id: r.track_id }));
+    const imposterTracks = (imposterPt ?? []).map((r) => ({ id: r.track_id }));
     const townTrack = shuffle(townTracks ?? [])[0];
     const imposterTrack = shuffle(imposterTracks ?? [])[0];
     const nextRound = currentRoundNumber + 1;
     await supabase.from('imposter_rounds').insert({ session_id: session.id, round: nextRound, town_playlist_id: townPlaylistId, imposter_playlist_id: imposterPlaylistId, imposter_participant_id: imposterId, town_track_id: townTrack?.id ?? null, imposter_track_id: imposterTrack?.id ?? null });
-    await supabase.from('sessions').update({ playback_state: 'paused' }).eq('id', session.id);
+    await supabase.from('participants').update({ ready: false }).eq('session_id', session.id);
+    await supabase.from('sessions').update({ playback_state: 'paused', round_active: false }).eq('id', session.id);
     setCurrentRoundNumber(nextRound);
     setImposterParticipantId(imposterId);
     setPlaybackState('paused');
+    setRoundActive(false);
+    setReadyIds(new Set());
     setLocalPhase('playing');
     setStarting(false);
   }
 
   async function togglePlayback() {
     const next = playbackState === 'playing' ? 'paused' : 'playing';
-    await supabase.from('sessions').update({ playback_state: next }).eq('id', session.id);
+    const updates: any = { playback_state: next };
+    if (next === 'playing') updates.round_active = true;
+    await supabase.from('sessions').update(updates).eq('id', session.id);
     setPlaybackState(next);
+    if (next === 'playing') setRoundActive(true);
   }
 
   async function reveal() {
@@ -206,11 +224,23 @@ export default function ImposterHostControls({ session }: ModeProps) {
             <HomeButton />
           </View>
 
-          <View style={{ alignItems: 'center' }}>
-            <Pressable onPress={togglePlayback} style={[s.bigBtn, { backgroundColor: playbackState === 'playing' ? '#ef4444' : '#10b981' }]}>
-              <Text style={s.bigBtnText}>{playbackState === 'playing' ? 'Pause' : 'Play'}</Text>
-            </Pressable>
-          </View>
+          {(() => {
+            const allReady = participants.length > 0 && participants.every((p) => readyIds.has(p.id));
+            const canPlay = roundActive || allReady;
+            return (
+              <View style={{ alignItems: 'center', gap: 8 }}>
+                <Pressable
+                  onPress={canPlay ? togglePlayback : undefined}
+                  style={[s.bigBtn, { backgroundColor: playbackState === 'playing' ? '#ef4444' : canPlay ? '#10b981' : '#27272a', opacity: canPlay ? 1 : 0.5 }]}
+                >
+                  <Text style={s.bigBtnText}>{playbackState === 'playing' ? 'Pause' : 'Play'}</Text>
+                </Pressable>
+                {!canPlay && (
+                  <Text style={{ color: '#71717a', fontSize: 13 }}>{readyIds.size}/{participants.length} ready</Text>
+                )}
+              </View>
+            );
+          })()}
 
           <Panel>
             <Kicker>Participants ({participants.length})</Kicker>
@@ -218,10 +248,15 @@ export default function ImposterHostControls({ session }: ModeProps) {
               {participants.map((p) => (
                 <ListRow key={p.id} style={{ justifyContent: 'space-between' }}>
                   <Text style={s.name}>{p.name}</Text>
-                  {p.id === imposterParticipantId
-                    ? <View style={s.imposterBadge}><Text style={{ color: '#fca5a5', fontSize: 12, fontWeight: '700' }}>Imposter</Text></View>
-                    : <View style={s.townBadge}><Text style={{ color: '#a1a1aa', fontSize: 12 }}>Townsperson</Text></View>
-                  }
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    {!roundActive && readyIds.has(p.id) && (
+                      <Text style={{ color: '#34d399', fontSize: 12, fontWeight: '700' }}>Ready</Text>
+                    )}
+                    {p.id === imposterParticipantId
+                      ? <View style={s.imposterBadge}><Text style={{ color: '#fca5a5', fontSize: 12, fontWeight: '700' }}>Imposter</Text></View>
+                      : <View style={s.townBadge}><Text style={{ color: '#a1a1aa', fontSize: 12 }}>Townsperson</Text></View>
+                    }
+                  </View>
                 </ListRow>
               ))}
             </View>
