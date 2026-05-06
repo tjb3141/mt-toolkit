@@ -40,7 +40,7 @@ export default function SilentDiscoClientView({ session }: ModeProps) {
   ]);
 
   useEffect(() => {
-    if (tracks.length === 0) return;
+    if (tracks.length === 0 || currentIndex === 0) return;
     loadTrack(tracks[currentIndex].id, session.id).then(() => { if (playbackStateRef.current === 'playing') play(); });
   }, [tracks, currentIndex]);
 
@@ -52,11 +52,20 @@ export default function SilentDiscoClientView({ session }: ModeProps) {
   async function selectGenre(genre: Playlist) {
     setSelectedGenre(genre);
     setTracksLoading(true);
-    if (participantId) await supabase.from('participants').update({ playlist_id: genre.id }).eq('id', participantId);
-    const { data } = await supabase.from('tracks').select('id, title, storage_path, duration_seconds').eq('playlist_id', genre.id);
+    const [, { data: ptData }] = await Promise.all([
+      participantId ? supabase.from('participants').update({ playlist_id: genre.id }).eq('id', participantId) : Promise.resolve(null),
+      supabase.from('playlist_tracks').select('tracks(id, title, storage_path, duration_seconds)').eq('playlist_id', genre.id),
+    ]);
+    const shuffled = shuffle((ptData ?? []).map((r: any) => r.tracks).flat().filter(Boolean));
     setTracksLoading(false);
-    setTracks(shuffle(data ?? []));
+    setTracks(shuffled);
     setCurrentIndex(0);
+    if (shuffled.length === 0) return;
+    // Load first track and prime iOS audio session — still within gesture async chain
+    await loadTrack(shuffled[0].id, session.id);
+    play();
+    pause();
+    if (playbackStateRef.current === 'playing') play();
   }
 
   function prevTrack() { setCurrentIndex((i) => (i - 1 + tracks.length) % tracks.length); }
@@ -72,7 +81,7 @@ export default function SilentDiscoClientView({ session }: ModeProps) {
 
   if (!participantId) {
     return (
-      <Screen>
+      <Screen avoidKeyboard>
         <Shell style={{ justifyContent: 'center' }}>
           <PanelStrong style={{ alignItems: 'center', paddingVertical: 32 }}>
             <Text style={s.emoji}>🎧</Text>
@@ -149,6 +158,18 @@ export default function SilentDiscoClientView({ session }: ModeProps) {
   const isPlaying = playbackState === 'playing';
   const isEnded = playbackState === 'ended';
 
+  if (isEnded) {
+    return (
+      <Screen>
+        <Shell style={{ justifyContent: 'center', alignItems: 'center' }}>
+          <Kicker>MT Toolkit</Kicker>
+          <Text style={s.bigTitle}>Session ended</Text>
+          <Text style={{ color: '#71717a', marginTop: 8 }}>Thanks for playing!</Text>
+        </Shell>
+      </Screen>
+    );
+  }
+
   return (
     <Screen>
       <Shell style={{ justifyContent: 'space-between' }}>
@@ -158,8 +179,8 @@ export default function SilentDiscoClientView({ session }: ModeProps) {
         </View>
 
         <PanelStrong>
-          <Kicker style={{ color: isEnded ? '#52525b' : isPlaying ? '#34d399' : '#71717a' }}>
-            {isEnded ? 'Session ended' : isPlaying ? 'Now playing' : 'Waiting for host…'}
+          <Kicker style={{ color: isPlaying ? '#34d399' : '#71717a' }}>
+            {isPlaying ? 'Now playing' : 'Waiting for host…'}
           </Kicker>
           <Text style={s.trackTitle}>{tracks[currentIndex].title}</Text>
           <Text style={s.trackCount}>Track {currentIndex + 1} of {tracks.length}</Text>
@@ -188,7 +209,7 @@ const PANEL_BORDER = 'rgba(255,255,255,0.10)';
 
 const s = StyleSheet.create({
   emoji: { fontSize: 48, marginBottom: 12, textAlign: 'center' },
-  bigTitle: { color: '#fff', fontSize: 34, fontWeight: '900', marginTop: 4 },
+  bigTitle: { color: '#fff', fontSize: 34, fontWeight: '900', textAlign: 'center', marginTop: 4 },
   btnText: { color: '#fff', fontSize: 18, fontWeight: '900' },
   genreRow: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: PANEL_BG, borderRadius: 18, borderWidth: 1, borderColor: PANEL_BORDER, paddingHorizontal: 18, paddingVertical: 18 },
   genreName: { color: '#fff', fontSize: 22, fontWeight: '900' },
