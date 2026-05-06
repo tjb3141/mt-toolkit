@@ -24,6 +24,8 @@ export default function FreezeDanceHostControls({ session }: ModeProps) {
   const [currentRound, setCurrentRound] = useState(0);
   const [currentTrackTitle, setCurrentTrackTitle] = useState<string | null>(null);
   const [playbackState, setPlaybackState] = useState(session.playback_state);
+  const [roundActive, setRoundActive] = useState(session.playback_state === 'playing');
+  const [readyIds, setReadyIds] = useState<Set<string>>(new Set());
   const [starting, setStarting] = useState(false);
 
   const joinUrl = typeof window !== 'undefined' ? `${window.location.origin}/join/${session.code}` : '';
@@ -43,17 +45,24 @@ export default function FreezeDanceHostControls({ session }: ModeProps) {
 
   useRealtimeTable(`freeze-host:${session.id}`, [
     { event: 'INSERT', table: 'participants', filter: `session_id=eq.${session.id}`, onPayload: (p) => setParticipants((prev) => [...prev, p.new as Participant]) },
-    { event: 'UPDATE', table: 'sessions', filter: `id=eq.${session.id}`, onPayload: (p) => { setPlaybackState(p.new.playback_state); if (p.new.playback_state === 'ended') setLocalPhase('ended'); } },
+    { event: 'UPDATE', table: 'sessions', filter: `id=eq.${session.id}`, onPayload: (p) => {
+      setPlaybackState(p.new.playback_state);
+      if (p.new.round_active) setRoundActive(true);
+      if (p.new.playback_state === 'ended') setLocalPhase('ended');
+    }},
     { event: 'INSERT', table: 'freeze_dance_eliminations', onPayload: (p) => { if (p.new.session_id !== session.id) return; setEliminatedIds((prev) => new Set([...prev, p.new.participant_id])); } },
     { event: 'DELETE', table: 'freeze_dance_eliminations', onPayload: () => reloadEliminations() },
+    { event: 'UPDATE', table: 'participants', onPayload: (p) => {
+      if (p.new.session_id !== session.id) return;
+      if (p.new.ready) setReadyIds((prev) => new Set([...prev, p.new.id]));
+    }},
   ]);
 
   async function loadCurrentRoundState() {
     const { data: round } = await supabase.from('freeze_dance_rounds').select('round, track_id').eq('session_id', session.id).order('round', { ascending: false }).limit(1).maybeSingle();
     if (round) {
       setCurrentRound(round.round);
-      const { data: track } = await supabase.from('tracks').select('title, playlist_id').eq('id', round.track_id).single();
-      if (track?.playlist_id) setSelectedPlaylistId(track.playlist_id);
+      const { data: track } = await supabase.from('tracks').select('title').eq('id', round.track_id).single();
       if (track?.title) setCurrentTrackTitle(track.title);
       setLocalPhase('playing');
     }
@@ -68,25 +77,32 @@ export default function FreezeDanceHostControls({ session }: ModeProps) {
   async function startRound() {
     if (!selectedPlaylistId) return;
     setStarting(true);
-    const { data: trackRows } = await supabase.from('tracks').select('id, title').eq('playlist_id', selectedPlaylistId);
+    const { data: ptRows } = await supabase.from('playlist_tracks').select('tracks(id, title)').eq('playlist_id', selectedPlaylistId);
+    const trackRows = (ptRows ?? []).map((r: any) => r.tracks).flat().filter(Boolean) as { id: string; title: string }[];
     const track = shuffle(trackRows ?? [])[0];
     if (!track) { setStarting(false); return; }
     setCurrentTrackTitle(track.title);
     const nextRound = currentRound + 1;
     await supabase.from('freeze_dance_eliminations').delete().eq('session_id', session.id);
     await supabase.from('freeze_dance_rounds').insert({ session_id: session.id, round: nextRound, track_id: track.id });
-    await supabase.from('sessions').update({ playback_state: 'paused' }).eq('id', session.id);
+    await supabase.from('participants').update({ ready: false }).eq('session_id', session.id);
+    await supabase.from('sessions').update({ playback_state: 'paused', round_active: false }).eq('id', session.id);
     setEliminatedIds(new Set());
     setCurrentRound(nextRound);
     setPlaybackState('paused');
+    setRoundActive(false);
+    setReadyIds(new Set());
     setLocalPhase('playing');
     setStarting(false);
   }
 
   async function togglePlayback() {
     const next = playbackState === 'playing' ? 'paused' : 'playing';
-    await supabase.from('sessions').update({ playback_state: next }).eq('id', session.id);
+    const updates: any = { playback_state: next };
+    if (next === 'playing') updates.round_active = true;
+    await supabase.from('sessions').update(updates).eq('id', session.id);
     setPlaybackState(next);
+    if (next === 'playing') setRoundActive(true);
   }
 
   async function markOut(participantId: string) {
@@ -211,16 +227,27 @@ export default function FreezeDanceHostControls({ session }: ModeProps) {
           </PanelStrong>
         ) : (
           <>
-            <View style={{ alignItems: 'center', gap: 16 }}>
-              <Pressable onPress={togglePlayback} style={[s.bigBtn, { backgroundColor: playbackState === 'playing' ? '#ef4444' : '#10b981' }]}>
-                <Text style={s.bigBtnText}>{playbackState === 'playing' ? 'Pause' : 'Play'}</Text>
-              </Pressable>
-              {playbackState === 'paused'
-                ? <Text style={{ color: '#f87171', fontSize: 13, fontWeight: '600' }}>Music stopped — mark anyone who moved</Text>
-                : <Text style={{ color: '#34d399', fontSize: 13, fontWeight: '600' }}>Music playing</Text>
-              }
-              {currentTrackTitle && <Text style={s.subText}>{currentTrackTitle}</Text>}
-            </View>
+            {(() => {
+              const allReady = activeParticipants.length > 0 && activeParticipants.every((p) => readyIds.has(p.id));
+              const canPlay = roundActive || allReady;
+              return (
+                <View style={{ alignItems: 'center', gap: 16 }}>
+                  <Pressable
+                    onPress={canPlay ? togglePlayback : undefined}
+                    style={[s.bigBtn, { backgroundColor: playbackState === 'playing' ? '#ef4444' : canPlay ? '#10b981' : '#27272a', opacity: canPlay ? 1 : 0.5 }]}
+                  >
+                    <Text style={s.bigBtnText}>{playbackState === 'playing' ? 'Pause' : 'Play'}</Text>
+                  </Pressable>
+                  {playbackState === 'playing'
+                    ? <Text style={{ color: '#34d399', fontSize: 13, fontWeight: '600' }}>Music playing</Text>
+                    : roundActive
+                      ? <Text style={{ color: '#f87171', fontSize: 13, fontWeight: '600' }}>Music stopped — mark anyone who moved</Text>
+                      : <Text style={{ color: '#71717a', fontSize: 13 }}>{readyIds.size}/{activeParticipants.length} ready</Text>
+                  }
+                  {currentTrackTitle && <Text style={s.subText}>{currentTrackTitle}</Text>}
+                </View>
+              );
+            })()}
 
             <Panel>
               <View style={s.rowBetween}>

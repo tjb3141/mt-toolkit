@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
 import { useParticipant } from '@/hooks/useParticipant';
@@ -17,6 +17,9 @@ export default function FreezeDanceClientView({ session }: ModeProps) {
   const [isEliminated, setIsEliminated] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [nameInput, setNameInput] = useState('');
+  // readyForRound: round number the client tapped ready for this round
+  const [readyForRound, setReadyForRound] = useState<number | null>(null);
+  const [currentRound, setCurrentRound] = useState<number | null>(null);
 
   const playbackStateRef = useLatest(playbackState);
   const participantIdRef = useLatest(participantId);
@@ -47,8 +50,9 @@ export default function FreezeDanceClientView({ session }: ModeProps) {
         const pid = participantIdRef.current;
         if (!pid) return;
         setIsEliminated(false);
+        setReadyForRound(null);
         await loadCurrentRound(pid);
-        if (playbackStateRef.current === 'playing') play();
+        // Don't auto-play — wait for host Play after ready check
       },
     },
   ], !!participantId);
@@ -84,8 +88,9 @@ export default function FreezeDanceClientView({ session }: ModeProps) {
   }, [trackId]);
 
   async function loadCurrentRound(pid: string) {
-    const { data: round } = await supabase.from('freeze_dance_rounds').select('track_id').eq('session_id', session.id).order('round', { ascending: false }).limit(1).maybeSingle();
+    const { data: round } = await supabase.from('freeze_dance_rounds').select('round, track_id').eq('session_id', session.id).order('round', { ascending: false }).limit(1).maybeSingle();
     if (!round?.track_id) return;
+    setCurrentRound(round.round);
     const { data: track } = await supabase.from('tracks').select('id, title').eq('id', round.track_id).single();
     if (track) { setTrackId(track.id); setTrackTitle(track.title); }
     await checkElimination(pid);
@@ -96,6 +101,14 @@ export default function FreezeDanceClientView({ session }: ModeProps) {
     const eliminated = !!data;
     setIsEliminated(eliminated);
     return eliminated;
+  }
+
+  async function markReady() {
+    if (!participantId || readyForRound === currentRound) return;
+    play();
+    pause();
+    setReadyForRound(currentRound);
+    await supabase.from('participants').update({ ready: true }).eq('id', participantId);
   }
 
   async function handleJoin() {
@@ -109,7 +122,7 @@ export default function FreezeDanceClientView({ session }: ModeProps) {
 
   if (!participantId) {
     return (
-      <Screen>
+      <Screen avoidKeyboard>
         <Shell style={{ justifyContent: 'center' }}>
           <PanelStrong style={{ alignItems: 'center', paddingVertical: 32 }}>
             <Text style={s.emoji}>🎵</Text>
@@ -169,6 +182,46 @@ export default function FreezeDanceClientView({ session }: ModeProps) {
     );
   }
 
+  // Ready check — shown once per round before first play
+  if (readyForRound !== currentRound) {
+    return (
+      <Screen>
+        <Shell style={{ justifyContent: 'center', alignItems: 'center', gap: 24 }}>
+          <PanelStrong style={{ alignItems: 'center', width: '100%', gap: 10 }}>
+            <Text style={s.emoji}>🎵</Text>
+            <Kicker>Get ready</Kicker>
+            <Text style={s.trackTitle}>{trackTitle}</Text>
+            <Text style={{ color: '#a1a1aa', fontSize: 14, textAlign: 'center', marginTop: 4 }}>
+              Put your headphones in — dance when it plays, freeze when it stops!
+            </Text>
+          </PanelStrong>
+          <GlowButton onPress={markReady} style={{ width: '100%' }}>
+            <Text style={s.btnText}>I'm Ready</Text>
+          </GlowButton>
+        </Shell>
+      </Screen>
+    );
+  }
+
+  // Waiting after ready
+  if (playbackState === 'paused') {
+    const isWaitingForStart = true; // round_active would tell us, but we track locally via readyForRound
+    return (
+      <Screen>
+        <Shell style={{ justifyContent: 'center', alignItems: 'center', gap: 24 }}>
+          <PanelStrong style={{ alignItems: 'center', width: '100%' }}>
+            <Kicker style={{ color: '#34d399' }}>Ready!</Kicker>
+            <Text style={s.trackTitle}>{trackTitle}</Text>
+            <Text style={{ color: '#a1a1aa', fontSize: 15, marginTop: 8, textAlign: 'center' }}>
+              Waiting for host to start…
+            </Text>
+          </PanelStrong>
+          <EqBars />
+        </Shell>
+      </Screen>
+    );
+  }
+
   const isPlaying = playbackState === 'playing';
   return (
     <Screen>
@@ -189,7 +242,7 @@ export default function FreezeDanceClientView({ session }: ModeProps) {
 
         <PanelStrong style={{ alignItems: 'center' }}>
           <Kicker style={{ color: isPlaying ? '#34d399' : '#71717a' }}>
-            {isPlaying ? 'Now playing' : 'Paused — don\'t move!'}
+            {isPlaying ? 'Now playing' : "Paused — don't move!"}
           </Kicker>
           <Text style={s.trackTitle}>{trackTitle}</Text>
         </PanelStrong>
