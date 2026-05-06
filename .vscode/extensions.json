@@ -3,6 +3,7 @@
 		"esbenp.prettier-vscode",
 		"dbaeumer.vscode-eslint",
 		"bradlc.vscode-tailwindcss",
-		"expo.vscode-expo-tools"
+		"expo.vscode-expo-tools",
+		"actboy168.tasks"
 	]
 }

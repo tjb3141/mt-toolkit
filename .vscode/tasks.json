@@ -1,0 +1,105 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Pi: Deploy",
+			"type": "shell",
+			"command": "bash deploy/deploy.sh",
+			"options": {
+				"cwd": "${workspaceFolder}",
+				"statusbar": { "label": "$(rocket) Deploy", "tooltip": "git pull + npm install + build + restart", "color": "#7CFC00" }
+			},
+			"presentation": { "reveal": "always", "panel": "dedicated", "clear": true },
+			"problemMatcher": [],
+			"icon": { "id": "rocket", "color": "terminal.ansiGreen" }
+		},
+		{
+			"label": "Pi: Build",
+			"type": "shell",
+			"command": "npm run build",
+			"options": {
+				"cwd": "${workspaceFolder}",
+				"statusbar": { "label": "$(package) Build", "tooltip": "npm run build (no pull, no restart)" }
+			},
+			"presentation": { "reveal": "always", "panel": "dedicated", "clear": true },
+			"problemMatcher": [],
+			"icon": { "id": "package", "color": "terminal.ansiBlue" }
+		},
+		{
+			"label": "Pi: Restart service",
+			"type": "shell",
+			"command": "sudo systemctl restart mt-toolkit && systemctl is-active mt-toolkit",
+			"options": {
+				"statusbar": { "label": "$(debug-restart) Restart", "tooltip": "Restart mt-toolkit systemd service", "color": "#FFD700" }
+			},
+			"presentation": { "reveal": "always", "panel": "shared", "clear": true },
+			"problemMatcher": [],
+			"icon": { "id": "debug-restart", "color": "terminal.ansiYellow" }
+		},
+		{
+			"label": "Pi: Reload Caddy",
+			"type": "shell",
+			"command": "sudo systemctl reload caddy && systemctl is-active caddy",
+			"presentation": { "reveal": "always", "panel": "shared", "clear": true },
+			"problemMatcher": [],
+			"icon": { "id": "refresh", "color": "terminal.ansiCyan" }
+		},
+		{
+			"label": "Pi: Tail app logs",
+			"type": "shell",
+			"command": "sudo journalctl -u mt-toolkit -f",
+			"options": {
+				"statusbar": { "label": "$(output) Logs", "tooltip": "Tail mt-toolkit journalctl" }
+			},
+			"isBackground": true,
+			"presentation": { "reveal": "always", "panel": "dedicated" },
+			"problemMatcher": [],
+			"icon": { "id": "output", "color": "terminal.ansiMagenta" }
+		},
+		{
+			"label": "Pi: Tail Caddy logs",
+			"type": "shell",
+			"command": "sudo journalctl -u caddy -f",
+			"isBackground": true,
+			"presentation": { "reveal": "always", "panel": "dedicated" },
+			"problemMatcher": [],
+			"icon": { "id": "output", "color": "terminal.ansiMagenta" }
+		},
+		{
+			"label": "Pi: Status",
+			"type": "shell",
+			"command": "echo '--- mt-toolkit ---' && systemctl status mt-toolkit --no-pager -l | head -8 && echo && echo '--- caddy ---' && systemctl status caddy --no-pager -l | head -6 && echo && echo '--- ports ---' && ss -tlnp 2>/dev/null | grep -E ':(3000|8080) '",
+			"options": {
+				"statusbar": { "label": "$(pulse) Status", "tooltip": "Service + port snapshot" }
+			},
+			"presentation": { "reveal": "always", "panel": "shared", "clear": true },
+			"problemMatcher": [],
+			"icon": { "id": "pulse", "color": "terminal.ansiWhite" }
+		},
+		{
+			"label": "Dev: Expo web (hot reload :8081)",
+			"type": "shell",
+			"command": "npm run dev",
+			"options": {
+				"cwd": "${workspaceFolder}",
+				"statusbar": { "label": "$(play-circle) Dev", "tooltip": "Expo dev server with hot reload at :8081" }
+			},
+			"isBackground": true,
+			"presentation": { "reveal": "always", "panel": "dedicated", "clear": true },
+			"problemMatcher": [],
+			"icon": { "id": "play-circle", "color": "terminal.ansiGreen" }
+		},
+		{
+			"label": "TS: Typecheck",
+			"type": "shell",
+			"command": "npm run ts:check",
+			"options": {
+				"cwd": "${workspaceFolder}",
+				"statusbar": { "label": "$(check) TS", "tooltip": "tsc --noEmit" }
+			},
+			"presentation": { "reveal": "always", "panel": "shared", "clear": true },
+			"problemMatcher": ["$tsc"],
+			"icon": { "id": "check", "color": "terminal.ansiBlue" }
+		}
+	]
+}

@@ -4,7 +4,7 @@
 // Reads PORT from env (default 3000). Listens on localhost only —
 // Caddy fronts it for TLS and static assets.
 
-import { createRequestHandler } from '@expo/server/adapter/express';
+import { createRequestHandler } from '@expo/server/adapter/express.js';
 import express from 'express';
 import compression from 'compression';
 import morgan from 'morgan';

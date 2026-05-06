@@ -9,7 +9,8 @@
 set -euo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/tjb3141/mt-toolkit.git}"
-APP_DIR="${APP_DIR:-/home/pi/mt-toolkit}"
+APP_DIR="${APP_DIR:-/home/tyler/mt-toolkit}"
+APP_USER="${APP_USER:-tyler}"
 NODE_MAJOR=20
 
 echo "==> Installing system packages"
@@ -50,19 +51,25 @@ echo "==> Installing npm deps and building"
 npm install
 npm run build
 
-echo "==> Installing systemd unit"
-sudo cp "$APP_DIR/deploy/mt-toolkit.service" /etc/systemd/system/mt-toolkit.service
+echo "==> Installing systemd unit (templating User and WorkingDirectory)"
+sudo sed \
+	-e "s|^User=.*|User=${APP_USER}|" \
+	-e "s|^WorkingDirectory=.*|WorkingDirectory=${APP_DIR}|" \
+	-e "s|^EnvironmentFile=.*|EnvironmentFile=${APP_DIR}/.env|" \
+	"$APP_DIR/deploy/mt-toolkit.service" \
+	| sudo tee /etc/systemd/system/mt-toolkit.service >/dev/null
 sudo systemctl daemon-reload
 sudo systemctl enable mt-toolkit
 sudo systemctl restart mt-toolkit
 
-echo "==> Installing Caddyfile"
-sudo cp "$APP_DIR/deploy/Caddyfile" /etc/caddy/Caddyfile
+echo "==> Installing Caddyfile (templating APP_DIR)"
+sudo sed "s|/home/pi/mt-toolkit|${APP_DIR}|g" "$APP_DIR/deploy/Caddyfile" \
+	| sudo tee /etc/caddy/Caddyfile >/dev/null
 sudo systemctl reload caddy || sudo systemctl restart caddy
 
 echo
 echo "==> Done."
 echo "    App:   http://127.0.0.1:3000   (systemctl status mt-toolkit)"
-echo "    Caddy: http://127.0.0.1:80     (systemctl status caddy)"
+echo "    Caddy: http://127.0.0.1:8080   (systemctl status caddy)"
 echo
-echo "Point your Cloudflare tunnel at http://127.0.0.1:80 to publish at thebeacheshome.com."
+echo "Point your Cloudflare tunnel at http://127.0.0.1:8080 to publish at thebeacheshome.com."

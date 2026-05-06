@@ -1,31 +1,29 @@
 # Caddy config for the Pi. Cloudflare tunnel terminates TLS, so Caddy
-# listens on plain HTTP at :80 and the tunnel routes the public
-# https://mt-toolkit.thebeacheshome.com → http://localhost:80 here.
+# listens on plain HTTP at :8080 (Pi-hole owns :80) and the tunnel
+# routes https://mt-toolkit.thebeacheshome.com → http://localhost:8080.
 #
-# Replace APP_DIR if you cloned somewhere other than /home/pi/mt-toolkit.
+# install-pi.sh templates /home/pi/mt-toolkit → APP_DIR before installing.
+#
+# This is an Expo Router server build (`output: 'server'`). The Node
+# server at :3000 handles SSR/SSG HTML for every route plus /api/*.
+# Caddy short-circuits requests for static client assets and proxies
+# everything else to Node.
 
-# Match the subdomain explicitly. `http://` keeps Caddy from trying to
-# fetch a TLS cert (Cloudflare already does TLS at the edge).
-http://mt-toolkit.thebeacheshome.com, http://localhost {
+:8080 {
 	encode zstd gzip
 
-	# Static client bundle — served directly by Caddy for low latency.
-	# try_files falls back to the Node server for routes that aren't
-	# pre-rendered HTML files.
+	# Static client assets live under dist/client (favicon, _expo/static
+	# bundles, /assets/*). Anything not matched here falls through to Node.
 	root * /home/pi/mt-toolkit/dist/client
-	try_files {path} {path}/ /index.html
 
-	# API routes and any non-static page handling go to the Node server.
-	@dynamic {
-		path /api/* /_expo/*
+	@static path /favicon.ico /_expo/static/* /assets/*
+	handle @static {
+		# Long-lived caching for fingerprinted bundle paths.
+		@hashed path /_expo/static/*
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+		file_server
 	}
-	handle @dynamic {
-		reverse_proxy 127.0.0.1:3000
-	}
 
-	file_server
-
-	# Long-lived caching for hashed bundle assets.
-	@hashed path /_expo/static/*
-	header @hashed Cache-Control "public, max-age=31536000, immutable"
+	# Everything else (HTML, API, _expo SSR routes) goes to the Expo Node server.
+	reverse_proxy 127.0.0.1:3000
 }
