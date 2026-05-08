@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { HomeButton } from '@/components/HomeButton';
+import { confirm } from '@/lib/confirm';
 import { C } from '@/components/ui';
 
 type Track = { id: string; title: string; storage_path: string; duration_seconds: number | null };
@@ -149,7 +150,7 @@ export default function AdminPage() {
   }
 
   async function deleteGenre(id: string, name: string) {
-    if (!confirm(`Delete "${name}" and all its tracks? This cannot be undone.`)) return;
+    if (!await confirm(`Delete "${name}" and all its tracks? This cannot be undone.`)) return;
     const res = await fetch(`/api/admin/playlists/${id}`, { method: 'DELETE', headers: ah(secret) });
     if (!res.ok) { alert(await res.text()); return; }
     setGenres((prev) => prev.filter((g) => g.id !== id));
@@ -186,7 +187,7 @@ export default function AdminPage() {
   }
 
   async function deleteTrack(genreId: string | null, trackId: string, title: string) {
-    if (!confirm(`Delete "${title}"?`)) return;
+    if (!await confirm(`Delete "${title}"?`)) return;
     const res = await fetch(`/api/admin/tracks/${trackId}`, { method: 'DELETE', headers: ah(secret) });
     if (!res.ok) { alert(await res.text()); return; }
     if (genreId) setGenres((prev) => prev.map((g) => g.id === genreId ? { ...g, tracks: g.tracks?.filter((t) => t.id !== trackId) } : g));
@@ -239,7 +240,7 @@ export default function AdminPage() {
   }
 
   async function endSession(id: string, code: string) {
-    if (!confirm(`End session ${code}?`)) return;
+    if (!await confirm(`End session ${code}?`)) return;
     const res = await fetch(`/api/admin/sessions/${id}`, { method: 'DELETE', headers: ah(secret) });
     if (!res.ok) { alert(await res.text()); return; }
     setSessions((prev) => prev.filter((s) => s.id !== id));

@@ -29,7 +29,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     output: 'server',
     favicon: './assets/favicon.png',
   },
-  plugins: ['expo-router'],
+  plugins: ['expo-router', 'expo-audio'],
   experiments: {
     typedRoutes: true,
   },

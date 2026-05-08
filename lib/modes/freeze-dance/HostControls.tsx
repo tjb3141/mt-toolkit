@@ -6,14 +6,12 @@ import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { Screen, Shell, Panel, PanelStrong, Kicker, GlowButton, HomeButton, ListRow, EndLink, C } from '@/components/ui';
 import { HostHeader } from '@/components/HostHeader';
 import { kickParticipant } from '@/lib/kickParticipant';
+import { confirm } from '@/lib/confirm';
+import { shuffle } from '@/lib/shuffle';
 import type { ModeProps } from '@/lib/modes';
 import type { Participant, Playlist } from '@/lib/types';
 
 type Phase = 'lobby' | 'setup' | 'playing' | 'ended';
-
-function shuffle<T>(arr: T[]): T[] {
-  return [...arr].sort(() => Math.random() - 0.5);
-}
 
 export default function FreezeDanceHostControls({ session }: ModeProps) {
   const initialPhase: Phase = session.playback_state === 'ended' ? 'ended' : 'lobby';
@@ -56,10 +54,9 @@ export default function FreezeDanceHostControls({ session }: ModeProps) {
       if (p.new.round_active) setRoundActive(true);
       if (p.new.playback_state === 'ended') setLocalPhase('ended');
     }},
-    { event: 'INSERT', table: 'freeze_dance_eliminations', onPayload: (p) => { if (p.new.session_id !== session.id) return; setEliminatedIds((prev) => new Set([...prev, p.new.participant_id])); } },
-    { event: 'DELETE', table: 'freeze_dance_eliminations', onPayload: () => reloadEliminations() },
-    { event: 'UPDATE', table: 'participants', onPayload: (p) => {
-      if (p.new.session_id !== session.id) return;
+    { event: 'INSERT', table: 'freeze_dance_eliminations', filter: `session_id=eq.${session.id}`, onPayload: (p) => { setEliminatedIds((prev) => new Set([...prev, p.new.participant_id])); } },
+    { event: 'DELETE', table: 'freeze_dance_eliminations', filter: `session_id=eq.${session.id}`, onPayload: () => reloadEliminations() },
+    { event: 'UPDATE', table: 'participants', filter: `session_id=eq.${session.id}`, onPayload: (p) => {
       if (p.new.ready) setReadyIds((prev) => new Set([...prev, p.new.id]));
     }},
   ]);
@@ -112,7 +109,7 @@ export default function FreezeDanceHostControls({ session }: ModeProps) {
   }
 
   async function kick(p: Participant) {
-    if (!confirm(`Remove ${p.name} from the session?`)) return;
+    if (!await confirm(`Remove ${p.name} from the session?`)) return;
     setParticipants((prev) => prev.filter((x) => x.id !== p.id));
     setReadyIds((prev) => { const s = new Set(prev); s.delete(p.id); return s; });
     setEliminatedIds((prev) => { const s = new Set(prev); s.delete(p.id); return s; });
@@ -224,7 +221,7 @@ export default function FreezeDanceHostControls({ session }: ModeProps) {
   const isWinner = activeParticipants.length === 1;
   return (
     <Screen>
-      <ScrollView contentContainerStyle={s.scrollContent}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scrollContent}>
         <HostHeader code={session.code} label={`Freeze Dance · Round ${currentRound}`} />
 
         {isWinner ? (

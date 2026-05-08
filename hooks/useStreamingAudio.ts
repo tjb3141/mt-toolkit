@@ -14,6 +14,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 //   // call prime() inside a user gesture (button onPress) before first play.
 //   await loadTrack(uri); play();
 type Options = {
+  loop?: boolean;
   onEnd?: () => void;
 };
 
@@ -45,6 +46,8 @@ export function useStreamingAudio(options?: Options) {
   });
   const onEndRef = useRef(options?.onEnd);
   onEndRef.current = options?.onEnd;
+  const loopRef = useRef(options?.loop ?? false);
+  loopRef.current = options?.loop ?? false;
   // Inline debug visible to the user — needed because iOS Safari has no console
   // and audio failures here are hard to diagnose otherwise.
   const [debug, setDebug] = useState<string>('idle');
@@ -197,10 +200,17 @@ export function useStreamingAudio(options?: Options) {
     src.onended = () => {
       // Was this the natural end (not a manual stop)?
       if (s.source === src) {
-        s.source = null;
-        s.isPlaying = false;
-        s.pauseOffset = 0;
-        onEndRef.current?.();
+        if (loopRef.current) {
+          // Loop: restart from beginning
+          s.source = null;
+          s.pauseOffset = 0;
+          startSource(0);
+        } else {
+          s.source = null;
+          s.isPlaying = false;
+          s.pauseOffset = 0;
+          onEndRef.current?.();
+        }
       }
     };
     src.start(0, offsetSeconds);
@@ -228,5 +238,12 @@ export function useStreamingAudio(options?: Options) {
     s.isPlaying = false;
   }, []);
 
-  return { prime, loadTrack, play, pause, restartCurrentBuffer, debug };
+  const loadTrackById = useCallback(async (trackId: string, sessionId: string) => {
+    const res = await fetch(`/api/audio/${trackId}?session=${sessionId}&json=1`);
+    if (!res.ok) return;
+    const { url } = await res.json();
+    return loadTrack(url);
+  }, [loadTrack]);
+
+  return { prime, loadTrack, loadTrackById, play, pause, restartCurrentBuffer, debug };
 }

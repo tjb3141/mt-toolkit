@@ -5,6 +5,7 @@ import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { Screen, Shell, Panel, PanelStrong, Kicker, HomeButton, EndLink, ListRow, C } from '@/components/ui';
 import { HostHeader } from '@/components/HostHeader';
 import { kickParticipant } from '@/lib/kickParticipant';
+import { confirm } from '@/lib/confirm';
 import type { ModeProps } from '@/lib/modes';
 import type { Participant } from '@/lib/types';
 
@@ -24,14 +25,14 @@ export default function SoloHostControls({ session }: ModeProps) {
 
   useRealtimeTable(`participants:${session.id}`, [
     { event: 'INSERT', table: 'participants', filter: `session_id=eq.${session.id}`, onPayload: (p) => setParticipants((prev) => [...prev, p.new as Participant]) },
-    { event: 'UPDATE', table: 'participants', onPayload: (p) => { if (p.new.session_id !== session.id) return; setParticipants((prev) => prev.map((x) => x.id === p.new.id ? p.new as Participant : x)); } },
+    { event: 'UPDATE', table: 'participants', filter: `session_id=eq.${session.id}`, onPayload: (p) => { setParticipants((prev) => prev.map((x) => x.id === p.new.id ? p.new as Participant : x)); } },
     { event: 'DELETE', table: 'participants', onPayload: (p) => setParticipants((prev) => prev.filter((x) => x.id !== (p.old as any).id)) },
   ]);
 
   const canKick = playbackState !== 'playing';
 
   async function kick(p: Participant) {
-    if (!confirm(`Remove ${p.name} from the session?`)) return;
+    if (!await confirm(`Remove ${p.name} from the session?`)) return;
     setParticipants((prev) => prev.filter((x) => x.id !== p.id));
     await kickParticipant(p.id, session.id);
   }

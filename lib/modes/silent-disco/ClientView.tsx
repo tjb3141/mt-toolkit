@@ -131,10 +131,11 @@ export default function SilentDiscoClientView({ session }: ModeProps) {
     </View>
   );
 
+  useEffect(() => { if (kicked) pause(); }, [kicked]);
+
   if (participantLoading) return null;
 
   if (kicked) {
-    pause();
     return <><KickedScreen />{debugOverlay}</>;
   }
 

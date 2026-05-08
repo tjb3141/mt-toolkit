@@ -5,6 +5,7 @@ import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { Screen, Shell, Panel, PanelStrong, Kicker, GlowButton, HomeButton, ListRow, EndLink } from '@/components/ui';
 import { HostHeader } from '@/components/HostHeader';
 import { kickParticipant } from '@/lib/kickParticipant';
+import { confirm } from '@/lib/confirm';
 import type { ModeProps } from '@/lib/modes';
 import type { Participant, Playlist, Track } from '@/lib/types';
 
@@ -80,8 +81,7 @@ export default function SilentDiscoHostControls({ session }: ModeProps) {
       setPlaybackState(p.new.playback_state);
       if (p.new.playback_state === 'ended') setLocalPhase('ended');
     }},
-    { event: 'UPDATE', table: 'participants', onPayload: (p) => {
-      if (p.new.session_id !== session.id) return;
+    { event: 'UPDATE', table: 'participants', filter: `session_id=eq.${session.id}`, onPayload: (p) => {
       // Mirror the row into local state so allReady tracks the DB source of truth
       // for both ready transitions (true and false).
       setParticipants((prev) => prev.map((x) => x.id === p.new.id ? { ...x, ...(p.new as Participant) } : x));
@@ -95,7 +95,7 @@ export default function SilentDiscoHostControls({ session }: ModeProps) {
   const canKick = playbackState !== 'playing';
 
   async function kick(p: Participant) {
-    if (!confirm(`Remove ${p.name} from the session?`)) return;
+    if (!await confirm(`Remove ${p.name} from the session?`)) return;
     setParticipants((prev) => prev.filter((x) => x.id !== p.id));
     await kickParticipant(p.id, session.id);
   }

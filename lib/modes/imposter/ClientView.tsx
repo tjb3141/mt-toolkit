@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useParticipant } from '@/hooks/useParticipant';
-import { useAudioPlayer } from '@/hooks/useAudioPlayer';
+import { useStreamingAudio } from '@/hooks/useStreamingAudio';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { useLatest } from '@/hooks/useLatest';
 import { Screen, Shell, Panel, PanelStrong, Kicker, GlowButton, EqBars, StyledInput } from '@/components/ui';
@@ -25,7 +25,7 @@ export default function ImposterClientView({ session }: ModeProps) {
   const playbackStateRef = useLatest(playbackState);
   const participantIdRef = useLatest(participantId);
   const assignedTrackIdRef = useLatest(assignedTrackId);
-  const { loadTrack, play, pause } = useAudioPlayer({ loop: true });
+  const { prime, loadTrackById, play, pause } = useStreamingAudio({ loop: true });
 
   useRealtimeTable(`imposter-client:${session.id}`, [
     { event: 'UPDATE', table: 'sessions', filter: `id=eq.${session.id}`, onPayload: async (payload) => {
@@ -70,7 +70,7 @@ export default function ImposterClientView({ session }: ModeProps) {
 
   useEffect(() => {
     if (!assignedTrackId) return;
-    loadTrack(assignedTrackId, session.id).then(() => { if (playbackStateRef.current === 'playing') play(); });
+    loadTrackById(assignedTrackId, session.id).then(() => { if (playbackStateRef.current === 'playing') play(); });
   }, [assignedTrackId]);
 
   async function loadCurrentRound(pid: string) {
@@ -95,8 +95,7 @@ export default function ImposterClientView({ session }: ModeProps) {
   async function markReady() {
     if (!participantId || readyForRound === currentRound) return;
     // Prime iOS audio session within this user gesture
-    play();
-    pause();
+    prime();
     setReadyForRound(currentRound);
     await supabase.from('participants').update({ ready: true }).eq('id', participantId);
   }
@@ -108,10 +107,11 @@ export default function ImposterClientView({ session }: ModeProps) {
     setSubmitting(false);
   }
 
+  useEffect(() => { if (kicked) pause(); }, [kicked]);
+
   if (participantLoading) return null;
 
   if (kicked) {
-    pause();
     return <KickedScreen />;
   }
 

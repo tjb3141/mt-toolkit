@@ -5,13 +5,13 @@ import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { Screen, Shell, Panel, PanelStrong, Kicker, GlowButton, HomeButton, ListRow, EndLink } from '@/components/ui';
 import { HostHeader } from '@/components/HostHeader';
 import { kickParticipant, kickFromPartnersRound } from '@/lib/kickParticipant';
+import { confirm } from '@/lib/confirm';
+import { shuffle } from '@/lib/shuffle';
 import type { ModeProps } from '@/lib/modes';
 import type { Participant, Playlist } from '@/lib/types';
 
 type PendingPair = { p1: Participant; p2: Participant; p3?: Participant };
 type LivePair = { id: string; participant_1_id: string; participant_2_id: string; participant_3_id: string | null; track_id: string | null; found: boolean; p1Name: string; p2Name: string; p3Name?: string; trackTitle: string; p1_ready: boolean; p2_ready: boolean; p3_ready: boolean };
-
-function shuffle<T>(arr: T[]): T[] { return [...arr].sort(() => Math.random() - 0.5); }
 
 async function fetchTracksForPlaylist(playlistId: string | null): Promise<{ id: string; title: string }[]> {
   const q = supabase.from('playlist_tracks').select('tracks(id, title)');
@@ -37,6 +37,13 @@ export default function PartnersHostControls({ session }: ModeProps) {
   const [roundActive, setRoundActive] = useState(session.playback_state === 'playing');
   const pairsChannelRef = useRef<any>(null);
 
+  // Cleanup manual pairs channel on unmount
+  useEffect(() => {
+    return () => {
+      if (pairsChannelRef.current) supabase.removeChannel(pairsChannelRef.current);
+    };
+  }, []);
+
   const allFound = pairs.length > 0 && pairs.every((p) => p.found);
   const allReady = pairs.length > 0 && pairs.every((p) =>
     p.p1_ready && p.p2_ready && (!p.participant_3_id || p.p3_ready)
@@ -61,13 +68,13 @@ export default function PartnersHostControls({ session }: ModeProps) {
   ]);
 
   async function kick(p: Participant) {
-    if (!confirm(`Remove ${p.name} from the session?`)) return;
+    if (!await confirm(`Remove ${p.name} from the session?`)) return;
     setParticipants((prev) => prev.filter((x) => x.id !== p.id));
     await kickParticipant(p.id, session.id);
   }
 
   async function kickFromRound(participantId: string, participantName: string) {
-    if (!confirm(`Remove ${participantName}? This will end the current round and return everyone to the lobby for re-pairing.`)) return;
+    if (!await confirm(`Remove ${participantName}? This will end the current round and return everyone to the lobby for re-pairing.`)) return;
     setParticipants((prev) => prev.filter((x) => x.id !== participantId));
     setPairs([]);
     setRoundActive(false);

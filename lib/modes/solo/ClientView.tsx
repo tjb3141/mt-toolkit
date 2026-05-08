@@ -3,17 +3,14 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { supabase } from '@/lib/supabase';
 import { useParticipant } from '@/hooks/useParticipant';
-import { useAudioPlayer } from '@/hooks/useAudioPlayer';
+import { useStreamingAudio } from '@/hooks/useStreamingAudio';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { useLatest } from '@/hooks/useLatest';
 import { Screen, Shell, Panel, PanelStrong, Kicker, GlowButton, IconTile, StyledInput } from '@/components/ui';
 import { KickedScreen } from '@/components/KickedScreen';
 import type { ModeProps } from '@/lib/modes';
 import type { Playlist, Track } from '@/lib/types';
-
-function shuffle<T>(arr: T[]): T[] {
-  return [...arr].sort(() => Math.random() - 0.5);
-}
+import { shuffle } from '@/lib/shuffle';
 
 export default function SoloClientView({ session }: ModeProps) {
   const { participantId, name, loading: participantLoading, join, kicked } = useParticipant(session.id);
@@ -30,7 +27,7 @@ export default function SoloClientView({ session }: ModeProps) {
   const tracksRef = useLatest(tracks);
 
   const nextTrack = useCallback(() => { setCurrentIndex((i) => (i + 1) % tracksRef.current.length); }, []);
-  const { loadTrack, play, pause } = useAudioPlayer({ loop: false, onEnd: nextTrack });
+  const { prime, loadTrackById, play, pause } = useStreamingAudio({ onEnd: nextTrack });
 
   useEffect(() => {
     supabase.from('playlists').select('id, name').order('display_order').then(({ data }) => setGenres(data ?? []));
@@ -42,7 +39,7 @@ export default function SoloClientView({ session }: ModeProps) {
 
   useEffect(() => {
     if (tracks.length === 0 || currentIndex === 0) return;
-    loadTrack(tracks[currentIndex].id, session.id).then(() => { if (playbackStateRef.current === 'playing') play(); });
+    loadTrackById(tracks[currentIndex].id, session.id).then(() => { if (playbackStateRef.current === 'playing') play(); });
   }, [tracks, currentIndex]);
 
   useEffect(() => {
@@ -62,10 +59,9 @@ export default function SoloClientView({ session }: ModeProps) {
     setTracks(shuffled);
     setCurrentIndex(0);
     if (shuffled.length === 0) return;
-    // Load first track and prime iOS audio session — still within gesture async chain
-    await loadTrack(shuffled[0].id, session.id);
-    play();
-    pause();
+    // Prime iOS audio session — must be synchronous within gesture
+    prime();
+    await loadTrackById(shuffled[0].id, session.id);
     if (playbackStateRef.current === 'playing') play();
   }
 
@@ -78,10 +74,11 @@ export default function SoloClientView({ session }: ModeProps) {
     setSubmitting(false);
   }
 
+  useEffect(() => { if (kicked) pause(); }, [kicked]);
+
   if (participantLoading) return null;
 
   if (kicked) {
-    pause();
     return <KickedScreen />;
   }
 

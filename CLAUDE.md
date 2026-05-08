@@ -98,6 +98,11 @@ app/api/admin/sign-upload+api.ts  → POST: get signed upload URL for Supabase S
 - `imposter` — one client hears a different track; others must identify them; host picks town + imposter playlists
 - `freeze_dance` — host picks a playlist, a random track plays for all; host play/pauses; clients who move when paused are marked out; last one standing wins
 
+### Shared utilities
+
+- **`lib/shuffle.ts`** — Fisher-Yates shuffle. All modes import this instead of inline biased sorts.
+- **`lib/confirm.ts`** — Cross-platform confirmation dialog. Returns `Promise<boolean>`. Uses `window.confirm()` on web, `Alert.alert()` on native. All destructive actions use `await confirm(msg)`.
+
 ### Shared UI primitives
 
 `components/ui.tsx` exports all shared styled components: `Screen`, `Shell`, `Panel`, `PanelStrong`, `Kicker`, `Title`, `GlowButton`, `IconTile`, `HomeButton`, `EqBars`, `StyledInput`, `CyanBadge`, `ListRow`, `ErrorBox`, `EndLink`. Use these instead of CSS class names — NativeWind className strings don't work for box-shadow, backdrop-filter, gradients, or pseudo-elements on React Native Web.
@@ -126,21 +131,25 @@ Tables with `REPLICA IDENTITY FULL` (needed for DELETE events to carry old row d
 
 ### Audio
 
-Two audio backends depending on platform:
+**`hooks/useStreamingAudio.ts`** — WebAudio API (`AudioContext` + `decodeAudioData`). Used by **all** ClientViews. Solves the iOS Safari problem: once the AudioContext is unlocked by a user gesture (`prime()`), subsequent track swaps from Realtime callbacks play without needing another gesture. A keep-alive silent oscillator prevents the context from auto-suspending. Call `prime()` inside a button handler before first play.
 
-1. **`hooks/useAudioPlayer.ts`** — wraps `expo-audio` (`createAudioPlayer`). Used by native builds and non-Safari web. Supports `loadTrack(trackId, sessionId)`, `play()`, `pause()`, `unload()`.
+Options: `{ loop?: boolean; onEnd?: () => void }`. Loop restarts from the beginning on track end; `onEnd` fires when not looping (used by solo mode to auto-advance).
 
-2. **`hooks/useStreamingAudio.ts`** — WebAudio API (`AudioContext` + `decodeAudioData`). Used by `silent_disco` ClientView on web. Solves the iOS Safari problem: once the AudioContext is unlocked by a user gesture (`prime()`), subsequent track swaps from Realtime callbacks play without needing another gesture. A keep-alive silent oscillator prevents the context from auto-suspending. Call `prime()` inside a button handler before first play.
+Exports: `prime()`, `loadTrack(url)`, `loadTrackById(trackId, sessionId)`, `play()`, `pause()`, `restartCurrentBuffer()`, `debug`.
 
-Both hooks expose `play()`, `pause()`, and `loadTrack()`.
+`loadTrackById` uses the `?json=1` pattern: fetches `/api/audio/${trackId}?session=${sessionId}&json=1` which returns `{ url: signedUrl }` as JSON instead of a 302 redirect. This avoids iOS Safari blocking cross-origin 302 redirects from `fetch()`.
+
+**`hooks/useAudioPlayer.ts`** — wraps `expo-audio` (`createAudioPlayer`). Legacy hook, no longer used by any ClientView. Kept for potential native-only use.
 
 ### Audio security
 
 The `tracks` bucket is **private**. Audio is never served via public URLs. Flow:
-1. Client sets audio source to `/api/audio/${trackId}?session=${sessionId}`
+1. Client fetches `/api/audio/${trackId}?session=${sessionId}&json=1`
 2. Server validates the session is active and not expired
-3. Server generates a 2-hour Supabase signed URL and returns HTTP 302
-4. Client follows redirect; audio streams from Supabase Storage
+3. Server generates a 2-hour Supabase signed URL and returns `{ url }` as JSON
+4. Client fetches the signed URL directly; audio streams from Supabase Storage
+
+The `?json=1` query param triggers JSON response instead of HTTP 302. Without it, the route returns a redirect (used by `<audio src="...">` tags but broken on iOS Safari `fetch()`).
 
 The audio proxy is a server route (`+api.ts`) — it works on web but not in native Expo Go builds. Native builds will need a client-side signed URL strategy.
 
@@ -158,7 +167,7 @@ All `/api/admin/*` server routes check `process.env.ADMIN_SECRET` via the `x-adm
 
 Sessions expire after 2 hours (`expires_at = now() + 2h`, set at creation). A pg_cron job in Supabase marks expired sessions `ended` every 5 minutes. Active sessions can also be ended manually from `/admin`. Clients subscribe to session updates and show an "ended" screen when `playback_state = 'ended'`.
 
-`playback_state` has a DB check constraint: `playing | paused | ended` only.
+`playback_state` has a DB check constraint: `playing | paused | ended | revealed` (revealed is used by imposter mode).
 
 ## Database schema
 
@@ -167,8 +176,8 @@ sessions               — id, code (6-char), mode, playback_state (playing|paus
 playlists              — id, name, display_order
 tracks                 — id, title, storage_path, duration_seconds  (NO playlist_id column)
 playlist_tracks        — id, playlist_id, track_id  (join table — only way to link tracks to playlists)
-participants           — id, session_id, name, playlist_id, current_track, joined_at  (NO ready column)
-partners_pairs         — id, session_id, participant_1_id, participant_2_id, participant_3_id, track_id, found, created_at  (NO p1/p2/p3_ready columns)
+participants           — id, session_id, name, playlist_id, current_track, ready (bool), joined_at
+partners_pairs         — id, session_id, participant_1_id, participant_2_id, participant_3_id, track_id, found, p1_ready, p2_ready, p3_ready, created_at
 imposter_rounds        — id, session_id, round, town_playlist_id, imposter_playlist_id, imposter_participant_id, town_track_id, imposter_track_id, created_at
 freeze_dance_rounds    — id, session_id, round, track_id, created_at
 freeze_dance_eliminations — id, session_id, participant_id, created_at

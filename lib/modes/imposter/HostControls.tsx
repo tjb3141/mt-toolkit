@@ -5,12 +5,12 @@ import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { Screen, Shell, Panel, PanelStrong, Kicker, GlowButton, HomeButton, ListRow, EndLink } from '@/components/ui';
 import { HostHeader } from '@/components/HostHeader';
 import { kickParticipant, kickFromImposterRound } from '@/lib/kickParticipant';
+import { confirm } from '@/lib/confirm';
+import { shuffle } from '@/lib/shuffle';
 import type { ModeProps } from '@/lib/modes';
 import type { Participant, Playlist } from '@/lib/types';
 
 type Phase = 'lobby' | 'setup' | 'playing' | 'revealed' | 'ended';
-
-function shuffle<T>(arr: T[]): T[] { return [...arr].sort(() => Math.random() - 0.5); }
 
 export default function ImposterHostControls({ session }: ModeProps) {
   const initialPhase: Phase = session.playback_state === 'playing' ? 'playing' : session.playback_state === 'ended' ? 'ended' : 'lobby';
@@ -50,8 +50,7 @@ export default function ImposterHostControls({ session }: ModeProps) {
       if (p.new.round_active) setRoundActive(true);
       if (p.new.playback_state === 'ended') setLocalPhase('ended');
     }},
-    { event: 'UPDATE', table: 'participants', onPayload: (p) => {
-      if (p.new.session_id !== session.id) return;
+    { event: 'UPDATE', table: 'participants', filter: `session_id=eq.${session.id}`, onPayload: (p) => {
       if (p.new.ready) setReadyIds((prev) => new Set([...prev, p.new.id]));
     }},
   ]);
@@ -63,7 +62,7 @@ export default function ImposterHostControls({ session }: ModeProps) {
     const message = isActiveImposter
       ? `Remove ${p.name}? They are the imposter — this round will end and you'll need to pick a new imposter.`
       : `Remove ${p.name} from the session?`;
-    if (!confirm(message)) return;
+    if (!await confirm(message)) return;
     setParticipants((prev) => prev.filter((x) => x.id !== p.id));
     setReadyIds((prev) => { const s = new Set(prev); s.delete(p.id); return s; });
     if (selectedImposterId === p.id) setSelectedImposterId(null);

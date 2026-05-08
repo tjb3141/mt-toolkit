@@ -3,7 +3,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
 import { useParticipant } from '@/hooks/useParticipant';
-import { useAudioPlayer } from '@/hooks/useAudioPlayer';
+import { useStreamingAudio } from '@/hooks/useStreamingAudio';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { useLatest } from '@/hooks/useLatest';
 import { Screen, Shell, Panel, PanelStrong, Kicker, GlowButton, EqBars, StyledInput } from '@/components/ui';
@@ -29,7 +29,7 @@ export default function FreezeDanceClientView({ session }: ModeProps) {
   const isEliminatedRef = useLatest(isEliminated);
   const elimChannelRef = useRef<any>(null);
 
-  const { loadTrack, play, pause } = useAudioPlayer({ loop: true });
+  const { prime, loadTrackById, play, pause } = useStreamingAudio({ loop: true });
 
   useRealtimeTable(`freeze-client:${session.id}`, [
     {
@@ -69,7 +69,7 @@ export default function FreezeDanceClientView({ session }: ModeProps) {
         // Any elim in our session — recompute winner status for ourselves.
         recomputeWinner();
       })
-      .on('postgres_changes' as any, { event: 'DELETE', schema: 'public', table: 'freeze_dance_eliminations' }, async () => {
+      .on('postgres_changes' as any, { event: 'DELETE', schema: 'public', table: 'freeze_dance_eliminations', filter: `session_id=eq.${session.id}` }, async () => {
         const pid = participantIdRef.current;
         if (!pid) return;
         const stillEliminated = await checkElimination(pid);
@@ -108,7 +108,7 @@ export default function FreezeDanceClientView({ session }: ModeProps) {
 
   useEffect(() => {
     if (!trackId) return;
-    loadTrack(trackId, session.id).then(() => {
+    loadTrackById(trackId, session.id).then(() => {
       if (playbackStateRef.current === 'playing' && !isEliminatedRef.current) play();
     });
   }, [trackId]);
@@ -131,8 +131,7 @@ export default function FreezeDanceClientView({ session }: ModeProps) {
 
   async function markReady() {
     if (!participantId || readyForRound === currentRound) return;
-    play();
-    pause();
+    prime();
     setReadyForRound(currentRound);
     await supabase.from('participants').update({ ready: true }).eq('id', participantId);
   }
@@ -144,10 +143,11 @@ export default function FreezeDanceClientView({ session }: ModeProps) {
     setSubmitting(false);
   }
 
+  useEffect(() => { if (kicked) pause(); }, [kicked]);
+
   if (participantLoading) return null;
 
   if (kicked) {
-    pause();
     return <KickedScreen />;
   }
 

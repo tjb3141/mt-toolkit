@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useParticipant } from '@/hooks/useParticipant';
-import { useAudioPlayer } from '@/hooks/useAudioPlayer';
+import { useStreamingAudio } from '@/hooks/useStreamingAudio';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { useLatest } from '@/hooks/useLatest';
 import { Screen, Shell, Panel, PanelStrong, Kicker, GlowButton, EqBars, StyledInput } from '@/components/ui';
@@ -27,7 +27,14 @@ export default function PartnersClientView({ session }: ModeProps) {
   const pairRef = useLatest(pair);
   const trackRef = useLatest(track);
   const pairChannelRef = useRef<any>(null);
-  const { loadTrack, play, pause } = useAudioPlayer({ loop: true });
+  const { prime, loadTrackById, play, pause } = useStreamingAudio({ loop: true });
+
+  // Cleanup manual pair channel on unmount
+  useEffect(() => {
+    return () => {
+      if (pairChannelRef.current) supabase.removeChannel(pairChannelRef.current);
+    };
+  }, []);
 
   useRealtimeTable(`partners-client:${session.id}`, [
     { event: 'UPDATE', table: 'sessions', filter: `id=eq.${session.id}`, onPayload: async (payload) => {
@@ -86,7 +93,7 @@ export default function PartnersClientView({ session }: ModeProps) {
       const { data: t } = await supabase.from('tracks').select('id, title, storage_path, duration_seconds').eq('id', data.track_id).single();
       if (t) {
         setTrack(t);
-        await loadTrack(t.id, session.id);
+        await loadTrackById(t.id, session.id);
         if (playbackStateRef.current === 'playing' && !data.found) play();
       }
     }
@@ -103,7 +110,7 @@ export default function PartnersClientView({ session }: ModeProps) {
           // New round — new track assigned, reset ready and reload
           setReadyForTrackId(null);
           supabase.from('tracks').select('id, title, storage_path, duration_seconds').eq('id', newTrackId).single().then(({ data: t }) => {
-            if (t) { setTrack(t); loadTrack(t.id, session.id, true).then(() => { if (playbackStateRef.current === 'playing') play(); }); }
+            if (t) { setTrack(t); loadTrackById(t.id, session.id).then(() => { if (playbackStateRef.current === 'playing') play(); }); }
           });
         }
         // Same track update (ready flag wrote) — do nothing
@@ -114,8 +121,7 @@ export default function PartnersClientView({ session }: ModeProps) {
   async function markReady() {
     if (!pair || !track || readyForTrackId === track.id) return;
     // Prime iOS audio session within this user gesture
-    play();
-    pause();
+    prime();
     setReadyForTrackId(track.id);
     const col = `${pair.mySlot}_ready`;
     await supabase.from('partners_pairs').update({ [col]: true }).eq('id', pair.id);
@@ -128,10 +134,11 @@ export default function PartnersClientView({ session }: ModeProps) {
     setSubmitting(false);
   }
 
+  useEffect(() => { if (kicked) pause(); }, [kicked]);
+
   if (participantLoading) return null;
 
   if (kicked) {
-    pause();
     return <KickedScreen />;
   }
 
