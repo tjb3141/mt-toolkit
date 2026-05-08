@@ -38,7 +38,7 @@ export default function SoloClientView({ session }: ModeProps) {
 
   useRealtimeTable(`session:${session.id}`, [
     { event: 'UPDATE', table: 'sessions', filter: `id=eq.${session.id}`, onPayload: (p) => { const s = p.new.playback_state; setPlaybackState(s); if (s === 'playing') play(); else pause(); } },
-  ]);
+  ], !!participantId);
 
   useEffect(() => {
     if (tracks.length === 0 || currentIndex === 0) return;

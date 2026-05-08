@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useParticipant } from '@/hooks/useParticipant';
-import { useAudioPlayer } from '@/hooks/useAudioPlayer';
+import { useStreamingAudio } from '@/hooks/useStreamingAudio';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { useLatest } from '@/hooks/useLatest';
 import { Screen, Shell, Panel, PanelStrong, Kicker, GlowButton, EqBars, StyledInput } from '@/components/ui';
@@ -23,12 +23,19 @@ export default function SilentDiscoClientView({ session }: ModeProps) {
   const participantIdRef = useLatest(participantId);
   const trackIdRef = useLatest(trackId);
 
-  const { loadTrack, play, pause } = useAudioPlayer({ loop: false });
+  const { prime, loadTrack, play, pause, restartCurrentBuffer } = useStreamingAudio();
+
+  function loadTrackForId(tid: string) {
+    return loadTrack(`/api/audio/${tid}?session=${session.id}`);
+  }
 
   useRealtimeTable(`sd-client:${session.id}`, [
     {
       event: 'UPDATE', table: 'sessions', filter: `id=eq.${session.id}`,
       onPayload: async (payload) => {
+        // Defensive: if we were kicked between the event being broadcast and
+        // received, the participantId ref will be null. Don't react.
+        if (!participantIdRef.current) { pause(); return; }
         const newState = payload.new.playback_state;
         setPlaybackState(newState);
         if (newState === 'playing') {
@@ -42,12 +49,19 @@ export default function SilentDiscoClientView({ session }: ModeProps) {
     },
     {
       event: 'INSERT', table: 'silent_disco_rounds', filter: `session_id=eq.${session.id}`,
-      onPayload: async () => {
+      onPayload: async (payload) => {
         const pid = participantIdRef.current;
         if (!pid) return;
-        setReadyForRound(null);
-        await loadCurrentRound(pid);
-        // Wait for ready check + host Play
+        const wasPlaying = playbackStateRef.current === 'playing';
+        const newRound = (payload.new as any).round as number;
+        const newTrackId = (payload.new as any).track_id as string | null;
+        // Update ready state in the same render as currentRound so the ready
+        // screen doesn't flash. wasPlaying => pre-readied for seamless skip;
+        // otherwise reset to require a fresh ready check.
+        await loadCurrentRound(pid, wasPlaying ? newRound : null);
+        if (wasPlaying && newTrackId && newTrackId === trackIdRef.current) {
+          restartCurrentBuffer();
+        }
       },
     },
   ], !!participantId);
@@ -59,12 +73,12 @@ export default function SilentDiscoClientView({ session }: ModeProps) {
 
   useEffect(() => {
     if (!trackId) return;
-    loadTrack(trackId, session.id).then(() => {
+    loadTrackForId(trackId).then(() => {
       if (playbackStateRef.current === 'playing') play();
     });
   }, [trackId]);
 
-  async function loadCurrentRound(_pid: string) {
+  async function loadCurrentRound(_pid: string, readyOverride: number | null | undefined = undefined) {
     const { data: round } = await supabase
       .from('silent_disco_rounds')
       .select('round, track_id')
@@ -73,16 +87,21 @@ export default function SilentDiscoClientView({ session }: ModeProps) {
       .limit(1)
       .maybeSingle();
     if (!round?.track_id) return;
-    setCurrentRound(round.round);
     const { data: track } = await supabase.from('tracks').select('id, title').eq('id', round.track_id).single();
+    // Batch the state updates so the next render sees a consistent view of
+    // currentRound + readyForRound and doesn't flash the ready screen.
+    setCurrentRound(round.round);
+    if (readyOverride !== undefined) setReadyForRound(readyOverride);
     if (track) { setTrackId(track.id); setTrackTitle(track.title); }
   }
 
   async function markReady() {
     if (!participantId || readyForRound === currentRound) return;
-    // Prime audio session within the user gesture
-    play();
-    pause();
+    // Unlock the AudioContext within the user gesture so subsequent host-driven
+    // play/skip works without further taps (especially on iOS Safari). This
+    // MUST stay synchronous before any await — awaiting drops us out of the
+    // gesture window on iOS and audio won't start later.
+    prime();
     setReadyForRound(currentRound);
     await supabase.from('participants').update({ ready: true }).eq('id', participantId);
   }

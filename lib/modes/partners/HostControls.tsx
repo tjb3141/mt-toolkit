@@ -3,7 +3,7 @@ import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { Screen, Shell, Panel, PanelStrong, Kicker, GlowButton, HomeButton, ListRow, EndLink } from '@/components/ui';
-import { QRCodeDisplay } from '@/components/QRCodeDisplay';
+import { HostHeader } from '@/components/HostHeader';
 import { kickParticipant, kickFromPartnersRound } from '@/lib/kickParticipant';
 import type { ModeProps } from '@/lib/modes';
 import type { Participant, Playlist } from '@/lib/types';
@@ -37,7 +37,6 @@ export default function PartnersHostControls({ session }: ModeProps) {
   const [roundActive, setRoundActive] = useState(session.playback_state === 'playing');
   const pairsChannelRef = useRef<any>(null);
 
-  const joinUrl = typeof window !== 'undefined' ? `${window.location.origin}/join/${session.code}` : '';
   const allFound = pairs.length > 0 && pairs.every((p) => p.found);
   const allReady = pairs.length > 0 && pairs.every((p) =>
     p.p1_ready && p.p2_ready && (!p.participant_3_id || p.p3_ready)
@@ -232,13 +231,7 @@ export default function PartnersHostControls({ session }: ModeProps) {
     return (
       <Screen>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scroll}>
-          <View style={s.topBar}><Kicker style={{ marginBottom: 0 }}>Partners Host</Kicker><HomeButton /></View>
-          <PanelStrong style={{ alignItems: 'center' }}>
-            <Kicker>Room Code</Kicker>
-            <Text style={s.roomCode}>{session.code}</Text>
-            <Text style={s.codeSub}>Get everyone into the room first</Text>
-          </PanelStrong>
-          {joinUrl ? <QRCodeDisplay url={joinUrl} code={session.code} /> : null}
+          <HostHeader code={session.code} label="Partners Host" />
           <Panel>
             <Kicker>Participants ({participants.length})</Kicker>
             {participants.length === 0
@@ -356,13 +349,7 @@ export default function PartnersHostControls({ session }: ModeProps) {
   return (
     <Screen>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scroll}>
-        <View style={s.topBar}>
-          <Kicker style={{ marginBottom: 0 }}>Find Your Match</Kicker>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Text style={s.sub}>{pairs.filter((p) => p.found).length}/{pairs.length} found</Text>
-            <HomeButton />
-          </View>
-        </View>
+        <HostHeader code={session.code} label={`Find Your Match · ${pairs.filter((p) => p.found).length}/${pairs.length} found`} />
 
         <View style={{ alignItems: 'center', gap: 8 }}>
           <Pressable

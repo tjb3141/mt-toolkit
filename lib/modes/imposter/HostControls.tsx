@@ -3,7 +3,7 @@ import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { Screen, Shell, Panel, PanelStrong, Kicker, GlowButton, HomeButton, ListRow, EndLink } from '@/components/ui';
-import { QRCodeDisplay } from '@/components/QRCodeDisplay';
+import { HostHeader } from '@/components/HostHeader';
 import { kickParticipant } from '@/lib/kickParticipant';
 import type { ModeProps } from '@/lib/modes';
 import type { Participant, Playlist } from '@/lib/types';
@@ -28,7 +28,6 @@ export default function ImposterHostControls({ session }: ModeProps) {
   const [readyIds, setReadyIds] = useState<Set<string>>(new Set());
   const [starting, setStarting] = useState(false);
 
-  const joinUrl = typeof window !== 'undefined' ? `${window.location.origin}/join/${session.code}` : '';
   const imposterName = participants.find((p) => p.id === imposterParticipantId)?.name ?? null;
 
   useEffect(() => {
@@ -136,13 +135,7 @@ export default function ImposterHostControls({ session }: ModeProps) {
     return (
       <Screen>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scroll}>
-          <View style={s.topBar}><Kicker style={{ marginBottom: 0 }}>Imposter Host</Kicker><HomeButton /></View>
-          <PanelStrong style={{ alignItems: 'center' }}>
-            <Kicker>Room Code</Kicker>
-            <Text style={s.roomCode}>{session.code}</Text>
-            <Text style={s.codeSub}>Get everyone into the room first</Text>
-          </PanelStrong>
-          {joinUrl ? <QRCodeDisplay url={joinUrl} code={session.code} /> : null}
+          <HostHeader code={session.code} label="Imposter Host" />
           <Panel>
             <Kicker>Participants ({participants.length})</Kicker>
             {participants.length === 0
@@ -240,13 +233,7 @@ export default function ImposterHostControls({ session }: ModeProps) {
     return (
       <Screen>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scroll}>
-          <View style={s.topBar}>
-            <View>
-              <Kicker style={{ marginBottom: 0 }}>Imposter Host</Kicker>
-              <Text style={s.sub}>Round {currentRoundNumber}</Text>
-            </View>
-            <HomeButton />
-          </View>
+          <HostHeader code={session.code} label={`Imposter Host · Round ${currentRoundNumber}`} />
 
           {(() => {
             const allReady = participants.length > 0 && participants.every((p) => readyIds.has(p.id));
@@ -304,7 +291,7 @@ export default function ImposterHostControls({ session }: ModeProps) {
   return (
     <Screen>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scroll}>
-        <View style={s.topBar}><Kicker style={{ marginBottom: 0 }}>Imposter Host — Revealed</Kicker><HomeButton /></View>
+        <HostHeader code={session.code} label="Imposter Host · Revealed" />
         <PanelStrong style={{ alignItems: 'center', paddingVertical: 36 }}>
           <Kicker>The imposter was…</Kicker>
           <Text style={[s.bigTitle, { color: '#f87171', fontSize: 48 }]}>{imposterName ?? '…'}</Text>

@@ -1,14 +1,40 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { Screen, Shell, Panel, PanelStrong, Kicker, GlowButton, HomeButton, ListRow, EndLink } from '@/components/ui';
-import { QRCodeDisplay } from '@/components/QRCodeDisplay';
+import { HostHeader } from '@/components/HostHeader';
 import { kickParticipant } from '@/lib/kickParticipant';
 import type { ModeProps } from '@/lib/modes';
 import type { Participant, Playlist, Track } from '@/lib/types';
 
 type Phase = 'lobby' | 'pickPlaylist' | 'pickTrack' | 'playing' | 'ended';
+
+function QueueSummary({ queue, onRemove }: { queue: Track[]; onRemove: (idx: number) => void }) {
+  if (queue.length === 0) {
+    return (
+      <Panel>
+        <Kicker>Queue (0)</Kicker>
+        <Text style={s.subText}>Nothing queued yet — tap tracks above to add them.</Text>
+      </Panel>
+    );
+  }
+  return (
+    <Panel>
+      <Kicker>Queue ({queue.length})</Kicker>
+      <View style={{ gap: 8, marginTop: 10 }}>
+        {queue.map((t, idx) => (
+          <ListRow key={`${t.id}-${idx}`} style={{ justifyContent: 'space-between' }}>
+            <Text style={s.queueTitle} numberOfLines={1}>{idx + 1}. {t.title}</Text>
+            <Pressable onPress={() => onRemove(idx)} style={s.removeBtn}>
+              <Text style={s.removeText}>×</Text>
+            </Pressable>
+          </ListRow>
+        ))}
+      </View>
+    </Panel>
+  );
+}
 
 export default function SilentDiscoHostControls({ session }: ModeProps) {
   const initialPhase: Phase = session.playback_state === 'ended' ? 'ended' : 'lobby';
@@ -20,11 +46,18 @@ export default function SilentDiscoHostControls({ session }: ModeProps) {
   const [tracksLoading, setTracksLoading] = useState(false);
   const [currentRound, setCurrentRound] = useState(0);
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
+  const [currentPlaylistId, setCurrentPlaylistId] = useState<string | null>(null);
+  const [queue, setQueue] = useState<Track[]>([]);
   const [playbackState, setPlaybackState] = useState(session.playback_state);
   const [readyIds, setReadyIds] = useState<Set<string>>(new Set());
   const [starting, setStarting] = useState(false);
 
-  const joinUrl = typeof window !== 'undefined' ? `${window.location.origin}/join/${session.code}` : '';
+  // Auto-advance bookkeeping. The host doesn't play audio, so we time the
+  // current track on the host clock and advance when it would finish.
+  const playElapsedRef = useRef(0);              // ms accumulated while playing
+  const playStartedAtRef = useRef<number | null>(null);
+  const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const allReady = useMemo(
     () => participants.length > 0 && participants.every((p) => readyIds.has(p.id)),
     [participants, readyIds]
@@ -73,6 +106,9 @@ export default function SilentDiscoHostControls({ session }: ModeProps) {
       setCurrentRound(round.round);
       const { data: track } = await supabase.from('tracks').select('id, title, storage_path, duration_seconds').eq('id', round.track_id).single();
       if (track) setCurrentTrack(track as Track);
+      // Best-effort: pick any playlist this track belongs to so auto-fill has a source.
+      const { data: pt } = await supabase.from('playlist_tracks').select('playlist_id').eq('track_id', round.track_id).limit(1).maybeSingle();
+      if (pt?.playlist_id) setCurrentPlaylistId(pt.playlist_id);
       setLocalPhase('playing');
     }
   }
@@ -94,29 +130,117 @@ export default function SilentDiscoHostControls({ session }: ModeProps) {
     setTracksLoading(false);
   }
 
-  async function queueTrack(track: Track) {
-    if (starting) return;
-    setStarting(true);
+  // Insert a new round row and (optionally) reset the ready check.
+  // skipReadyCheck=true is used for seamless auto-advance / queue-pop while music
+  // is already playing — clients transition to the new track without re-readying.
+  async function startRoundWithTrack(track: Track, opts: { skipReadyCheck?: boolean } = {}) {
     const nextRound = currentRound + 1;
     await supabase.from('silent_disco_rounds').insert({ session_id: session.id, round: nextRound, track_id: track.id });
-    await supabase.from('participants').update({ ready: false }).eq('session_id', session.id);
-    await supabase.from('sessions').update({ playback_state: 'paused' }).eq('id', session.id);
+    if (!opts.skipReadyCheck) {
+      await supabase.from('participants').update({ ready: false }).eq('session_id', session.id);
+      await supabase.from('sessions').update({ playback_state: 'paused' }).eq('id', session.id);
+      setReadyIds(new Set());
+      setPlaybackState('paused');
+    }
     setCurrentRound(nextRound);
     setCurrentTrack(track);
-    setReadyIds(new Set());
-    setPlaybackState('paused');
+    if (selectedPlaylist) setCurrentPlaylistId(selectedPlaylist.id);
+    playElapsedRef.current = 0;
+    playStartedAtRef.current = null;
+    if (advanceTimerRef.current) { clearTimeout(advanceTimerRef.current); advanceTimerRef.current = null; }
     setLocalPhase('playing');
+  }
+
+  // Called from the pickTrack screen — always appends to the queue and stays on the
+  // current track list so Riley can keep batch-adding. Going back to the lobby /
+  // playing screen happens via explicit "Start session" / "Done" buttons.
+  function queueOrPlayTrack(track: Track) {
+    setQueue((prev) => [...prev, track]);
+    if (selectedPlaylist) setCurrentPlaylistId((prev) => prev ?? selectedPlaylist.id);
+  }
+
+  // From the playlist picker, kick off the session using the first queued track.
+  async function startSession() {
+    if (starting || queue.length === 0) return;
+    setStarting(true);
+    const [first, ...rest] = queue;
+    setQueue(rest);
+    await startRoundWithTrack(first);
     setStarting(false);
   }
+
+  function removeFromQueue(idx: number) {
+    setQueue((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  // Pick the next track: prefer queue head, else random from currentPlaylistId.
+  async function pickNextTrack(): Promise<Track | null> {
+    if (queue.length > 0) {
+      const next = queue[0];
+      setQueue((prev) => prev.slice(1));
+      return next;
+    }
+    if (!currentPlaylistId) return null;
+    const { data } = await supabase
+      .from('playlist_tracks')
+      .select('tracks(id, title, storage_path, duration_seconds)')
+      .eq('playlist_id', currentPlaylistId);
+    const candidates = (data ?? []).map((r: any) => r.tracks).flat().filter(Boolean) as Track[];
+    const others = candidates.filter((t) => t.id !== currentTrack?.id);
+    const pool = others.length > 0 ? others : candidates;
+    if (pool.length === 0) return null;
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  async function advanceToNext() {
+    const next = await pickNextTrack();
+    if (!next) return;
+    // Seamless if music was already playing; otherwise normal ready-check flow.
+    const seamless = playbackState === 'playing';
+    await startRoundWithTrack(next, { skipReadyCheck: seamless });
+    if (seamless) {
+      // We're staying in 'playing' state; arm the timer immediately.
+      armAdvanceTimer(next);
+    }
+  }
+
+  function armAdvanceTimer(track: Track) {
+    if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
+    const durationMs = (track.duration_seconds ?? 0) * 1000;
+    if (durationMs <= 0) return;
+    const remaining = Math.max(0, durationMs - playElapsedRef.current);
+    playStartedAtRef.current = Date.now();
+    advanceTimerRef.current = setTimeout(() => {
+      playStartedAtRef.current = null;
+      playElapsedRef.current = 0;
+      advanceToNext();
+    }, remaining);
+  }
+
+  function disarmAdvanceTimer() {
+    if (advanceTimerRef.current) { clearTimeout(advanceTimerRef.current); advanceTimerRef.current = null; }
+    if (playStartedAtRef.current !== null) {
+      playElapsedRef.current += Date.now() - playStartedAtRef.current;
+      playStartedAtRef.current = null;
+    }
+  }
+
+  // Clean up any timer on unmount.
+  useEffect(() => {
+    return () => { if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current); };
+  }, []);
 
   async function togglePlayback() {
     if (playbackState !== 'playing' && !allReady) return;
     const next = playbackState === 'playing' ? 'paused' : 'playing';
     await supabase.from('sessions').update({ playback_state: next }).eq('id', session.id);
     setPlaybackState(next);
+    if (next === 'playing' && currentTrack) armAdvanceTimer(currentTrack);
+    else disarmAdvanceTimer();
   }
 
   async function endSession() {
+    if (advanceTimerRef.current) { clearTimeout(advanceTimerRef.current); advanceTimerRef.current = null; }
     await supabase.from('sessions').update({ playback_state: 'ended' }).eq('id', session.id);
     setLocalPhase('ended');
   }
@@ -138,18 +262,7 @@ export default function SilentDiscoHostControls({ session }: ModeProps) {
     return (
       <Screen>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scrollContent}>
-          <View style={s.topBar}>
-            <Kicker style={{ marginBottom: 0 }}>Silent Disco Host</Kicker>
-            <HomeButton />
-          </View>
-
-          <PanelStrong style={{ alignItems: 'center' }}>
-            <Kicker>Room Code</Kicker>
-            <Text style={s.roomCode}>{session.code}</Text>
-            <Text style={{ color: '#a5f3fc', fontSize: 13, marginTop: 8 }}>Get everyone into the room first</Text>
-          </PanelStrong>
-
-          {joinUrl ? <QRCodeDisplay url={joinUrl} code={session.code} /> : null}
+          <HostHeader code={session.code} label="Silent Disco Host" />
 
           <Panel>
             <Kicker>Participants ({participants.length})</Kicker>
@@ -192,7 +305,7 @@ export default function SilentDiscoHostControls({ session }: ModeProps) {
 
           <Panel>
             <Kicker>Playlist</Kicker>
-            <Text style={s.subText}>Then choose a track to queue for everyone.</Text>
+            <Text style={s.subText}>{currentTrack ? 'Pick a playlist to add more tracks to the queue.' : 'Pick a playlist to add tracks to the queue.'}</Text>
             <View style={s.pillRow}>
               {playlists.map((pl) => (
                 <Pressable key={pl.id} onPress={() => selectPlaylist(pl)} style={s.pill}>
@@ -202,13 +315,23 @@ export default function SilentDiscoHostControls({ session }: ModeProps) {
             </View>
           </Panel>
 
-          {joinUrl ? <QRCodeDisplay url={joinUrl} code={session.code} /> : null}
+          <QueueSummary queue={queue} onRemove={removeFromQueue} />
 
-          <View style={s.rowBtns}>
-            <Pressable onPress={() => setLocalPhase(currentRound > 0 ? 'playing' : 'lobby')} style={s.backBtn}>
-              <Text style={{ color: '#fff', fontWeight: '700' }}>Back</Text>
-            </Pressable>
-          </View>
+          {currentTrack
+            ? <View style={s.rowBtns}>
+                <GlowButton onPress={() => setLocalPhase('playing')} style={{ flex: 1 }}>
+                  <Text style={s.ctaText}>Done</Text>
+                </GlowButton>
+              </View>
+            : <View style={s.rowBtns}>
+                <Pressable onPress={() => setLocalPhase('lobby')} style={s.backBtn}>
+                  <Text style={{ color: '#fff', fontWeight: '700' }}>Back</Text>
+                </Pressable>
+                <GlowButton onPress={startSession} disabled={starting || queue.length === 0} style={{ flex: 2 }}>
+                  <Text style={s.ctaText}>{starting ? 'Starting…' : queue.length === 0 ? 'Add a track first' : 'Start session'}</Text>
+                </GlowButton>
+              </View>
+          }
           <EndLink onPress={endSession} />
         </ScrollView>
       </Screen>
@@ -228,29 +351,48 @@ export default function SilentDiscoHostControls({ session }: ModeProps) {
           </View>
 
           <Panel>
-            <Kicker>Pick a track</Kicker>
-            <Text style={s.subText}>Everyone hears the same track. Tap to queue it.</Text>
+            <Kicker>Add to queue</Kicker>
+            <Text style={s.subText}>Tap any track to add it. Pick more from this playlist or hit Back to switch playlists.</Text>
             {tracksLoading
               ? <Text style={[s.subText, { marginTop: 12 }]}>Loading tracks…</Text>
               : tracksForPlaylist.length === 0
                 ? <Text style={[s.subText, { marginTop: 12 }]}>No tracks in this playlist.</Text>
                 : <View style={{ gap: 8, marginTop: 10 }}>
-                    {tracksForPlaylist.map((t) => (
-                      <Pressable key={t.id} onPress={() => queueTrack(t)} disabled={starting} style={({ pressed }) => [s.trackRow, pressed && { opacity: 0.7 }]}>
-                        <Text style={s.trackRowText} numberOfLines={2}>{t.title}</Text>
-                      </Pressable>
-                    ))}
+                    {tracksForPlaylist.map((t) => {
+                      const queueCount = queue.filter((q) => q.id === t.id).length;
+                      return (
+                        <Pressable key={t.id} onPress={() => queueOrPlayTrack(t)} style={({ pressed }) => [s.trackRow, pressed && { opacity: 0.7 }]}>
+                          <Text style={s.trackRowText} numberOfLines={2}>{t.title}</Text>
+                          {queueCount > 0 && (
+                            <Text style={s.queuedBadge}>Queued{queueCount > 1 ? ` ×${queueCount}` : ''}</Text>
+                          )}
+                        </Pressable>
+                      );
+                    })}
                   </View>
             }
           </Panel>
 
-          {joinUrl ? <QRCodeDisplay url={joinUrl} code={session.code} /> : null}
+          <QueueSummary queue={queue} onRemove={removeFromQueue} />
 
-          <View style={s.rowBtns}>
-            <Pressable onPress={() => setLocalPhase('pickPlaylist')} style={s.backBtn}>
-              <Text style={{ color: '#fff', fontWeight: '700' }}>Back</Text>
-            </Pressable>
-          </View>
+          {currentTrack
+            ? <View style={s.rowBtns}>
+                <Pressable onPress={() => setLocalPhase('pickPlaylist')} style={s.backBtn}>
+                  <Text style={{ color: '#fff', fontWeight: '700' }}>Back</Text>
+                </Pressable>
+                <GlowButton onPress={() => setLocalPhase('playing')} style={{ flex: 2 }}>
+                  <Text style={s.ctaText}>Done</Text>
+                </GlowButton>
+              </View>
+            : <View style={s.rowBtns}>
+                <Pressable onPress={() => setLocalPhase('pickPlaylist')} style={s.backBtn}>
+                  <Text style={{ color: '#fff', fontWeight: '700' }}>Back</Text>
+                </Pressable>
+                <GlowButton onPress={startSession} disabled={starting || queue.length === 0} style={{ flex: 2 }}>
+                  <Text style={s.ctaText}>{starting ? 'Starting…' : queue.length === 0 ? 'Add a track first' : 'Start session'}</Text>
+                </GlowButton>
+              </View>
+          }
           <EndLink onPress={endSession} />
         </ScrollView>
       </Screen>
@@ -262,13 +404,7 @@ export default function SilentDiscoHostControls({ session }: ModeProps) {
   return (
     <Screen>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scrollContent}>
-        <View style={s.topBar}>
-          <View>
-            <Kicker style={{ marginBottom: 0 }}>Silent Disco Host</Kicker>
-            <Text style={s.roundLabel}>Track {currentRound}</Text>
-          </View>
-          <HomeButton />
-        </View>
+        <HostHeader code={session.code} label={`Silent Disco · Track ${currentRound}`} />
 
         <PanelStrong style={{ alignItems: 'center' }}>
           <Kicker style={{ color: playbackState === 'playing' ? '#34d399' : '#71717a' }}>
@@ -288,9 +424,29 @@ export default function SilentDiscoHostControls({ session }: ModeProps) {
             ? <Text style={{ color: '#34d399', fontSize: 13, fontWeight: '600' }}>Music playing</Text>
             : <Text style={{ color: '#71717a', fontSize: 13 }}>{readyIds.size}/{participants.length} ready</Text>
           }
+          <Pressable onPress={advanceToNext} style={s.skipBtn}>
+            <Text style={s.skipText}>Skip ▶</Text>
+          </Pressable>
         </View>
 
-        {playbackState !== 'playing' && joinUrl ? <QRCodeDisplay url={joinUrl} code={session.code} /> : null}
+        <Panel>
+          <View style={s.rowBetween}>
+            <Kicker style={{ marginBottom: 0 }}>Up next ({queue.length})</Kicker>
+            <Text style={s.subText}>{queue.length === 0 ? 'Auto-pick from current playlist' : ''}</Text>
+          </View>
+          {queue.length > 0 && (
+            <View style={{ gap: 8, marginTop: 10 }}>
+              {queue.map((t, idx) => (
+                <ListRow key={`${t.id}-${idx}`} style={{ justifyContent: 'space-between' }}>
+                  <Text style={s.queueTitle} numberOfLines={1}>{idx + 1}. {t.title}</Text>
+                  <Pressable onPress={() => removeFromQueue(idx)} style={s.removeBtn}>
+                    <Text style={s.removeText}>×</Text>
+                  </Pressable>
+                </ListRow>
+              ))}
+            </View>
+          )}
+        </Panel>
 
         <Panel>
           <Kicker>Participants ({participants.length})</Kicker>
@@ -314,7 +470,7 @@ export default function SilentDiscoHostControls({ session }: ModeProps) {
         </Panel>
 
         <GlowButton onPress={openPlaylistPicker}>
-          <Text style={s.ctaText}>Pick another track</Text>
+          <Text style={s.ctaText}>Add to queue</Text>
         </GlowButton>
         <EndLink onPress={endSession} />
       </ScrollView>
@@ -339,10 +495,17 @@ const s = StyleSheet.create({
   pillText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   trackRow: { borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.04)', paddingHorizontal: 14, paddingVertical: 14 },
   trackRowText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  queuedBadge: { color: '#34d399', fontSize: 11, fontWeight: '700', marginTop: 4, letterSpacing: 1 },
   rowBtns: { flexDirection: 'row', gap: 10 },
   backBtn: { flex: 1, borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, backgroundColor: 'rgba(255,255,255,0.05)' },
   bigBtn: { width: 160, height: 160, borderRadius: 80, alignItems: 'center', justifyContent: 'center' },
   bigBtnText: { color: '#fff', fontSize: 28, fontWeight: '900' },
   kickBtn: { borderRadius: 999, backgroundColor: 'rgba(127,29,29,0.6)', paddingHorizontal: 12, paddingVertical: 4 },
   kickText: { color: '#fca5a5', fontSize: 12, fontWeight: '700' },
+  skipBtn: { borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', paddingHorizontal: 18, paddingVertical: 8 },
+  skipText: { color: '#e4e4e7', fontSize: 14, fontWeight: '700' },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  queueTitle: { color: '#e4e4e7', fontSize: 14, fontWeight: '600', flex: 1 },
+  removeBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(127,29,29,0.6)', alignItems: 'center', justifyContent: 'center' },
+  removeText: { color: '#fca5a5', fontSize: 18, fontWeight: '900', lineHeight: 18 },
 });

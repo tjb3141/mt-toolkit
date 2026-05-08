@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { Screen, Shell, Panel, PanelStrong, Kicker, GlowButton, HomeButton, ListRow, EndLink, C } from '@/components/ui';
-import { QRCodeDisplay } from '@/components/QRCodeDisplay';
+import { HostHeader } from '@/components/HostHeader';
 import { kickParticipant } from '@/lib/kickParticipant';
 import type { ModeProps } from '@/lib/modes';
 import type { Participant, Playlist } from '@/lib/types';
@@ -29,7 +29,6 @@ export default function FreezeDanceHostControls({ session }: ModeProps) {
   const [readyIds, setReadyIds] = useState<Set<string>>(new Set());
   const [starting, setStarting] = useState(false);
 
-  const joinUrl = typeof window !== 'undefined' ? `${window.location.origin}/join/${session.code}` : '';
   const activeParticipants = useMemo(() => participants.filter((p) => !eliminatedIds.has(p.id)), [participants, eliminatedIds]);
   const eliminatedParticipants = useMemo(() => participants.filter((p) => eliminatedIds.has(p.id)), [participants, eliminatedIds]);
 
@@ -154,18 +153,7 @@ export default function FreezeDanceHostControls({ session }: ModeProps) {
     return (
       <Screen>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scrollContent}>
-          <View style={s.topBar}>
-            <Kicker style={{ marginBottom: 0 }}>Freeze Dance Host</Kicker>
-            <HomeButton />
-          </View>
-
-          <PanelStrong style={{ alignItems: 'center' }}>
-            <Kicker>Room Code</Kicker>
-            <Text style={s.roomCode}>{session.code}</Text>
-            <Text style={{ color: '#a5f3fc', fontSize: 13, marginTop: 8 }}>Get everyone into the room first</Text>
-          </PanelStrong>
-
-          {joinUrl ? <QRCodeDisplay url={joinUrl} code={session.code} /> : null}
+          <HostHeader code={session.code} label="Freeze Dance Host" />
 
           <Panel>
             <Kicker>Participants ({participants.length})</Kicker>
@@ -237,13 +225,7 @@ export default function FreezeDanceHostControls({ session }: ModeProps) {
   return (
     <Screen>
       <ScrollView contentContainerStyle={s.scrollContent}>
-        <View style={s.topBar}>
-          <View>
-            <Kicker style={{ marginBottom: 0 }}>Freeze Dance Host</Kicker>
-            <Text style={s.roundLabel}>Round {currentRound}</Text>
-          </View>
-          <HomeButton />
-        </View>
+        <HostHeader code={session.code} label={`Freeze Dance · Round ${currentRound}`} />
 
         {isWinner ? (
           <PanelStrong style={{ alignItems: 'center' }}>

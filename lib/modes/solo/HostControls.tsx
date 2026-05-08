@@ -3,7 +3,7 @@ import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { Screen, Shell, Panel, PanelStrong, Kicker, HomeButton, EndLink, ListRow, C } from '@/components/ui';
-import { QRCodeDisplay } from '@/components/QRCodeDisplay';
+import { HostHeader } from '@/components/HostHeader';
 import { kickParticipant } from '@/lib/kickParticipant';
 import type { ModeProps } from '@/lib/modes';
 import type { Participant } from '@/lib/types';
@@ -12,8 +12,6 @@ export default function SoloHostControls({ session }: ModeProps) {
   const [playbackState, setPlaybackState] = useState(session.playback_state);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [genreMap, setGenreMap] = useState<Record<string, string>>({});
-
-  const joinUrl = typeof window !== 'undefined' ? `${window.location.origin}/join/${session.code}` : '';
 
   useEffect(() => {
     supabase.from('playlists').select('id, name').then(({ data }) => {
@@ -52,20 +50,7 @@ export default function SoloHostControls({ session }: ModeProps) {
   return (
     <Screen>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scrollContent}>
-        <View style={s.topBar}>
-          <Kicker style={{ marginBottom: 0 }}>Solo Host</Kicker>
-          <HomeButton />
-        </View>
-
-        <PanelStrong style={{ alignItems: 'center' }}>
-          <Kicker>Room Code</Kicker>
-          <Text style={s.roomCode}>{session.code}</Text>
-          <View style={s.codePill}>
-            <Text style={{ color: '#a5f3fc', fontSize: 13, fontWeight: '600' }}>Guests scan or type this code</Text>
-          </View>
-        </PanelStrong>
-
-        {joinUrl ? <QRCodeDisplay url={joinUrl} code={session.code} /> : null}
+        <HostHeader code={session.code} label="Solo Host" />
 
         {playbackState !== 'ended' ? (
           <>

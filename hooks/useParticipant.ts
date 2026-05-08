@@ -28,6 +28,9 @@ export function useParticipant(sessionId: string) {
           if (payload.old?.id !== participantId) return;
           await AsyncStorage.removeItem(storageKey);
           setKicked(true);
+          // Clearing the id disables any consumer subscriptions gated on
+          // !!participantId so kicked devices stop reacting to session events.
+          setParticipantId(null);
         }
       )
       .subscribe();
