@@ -26,8 +26,14 @@ export default function SilentDiscoClientView({ session }: ModeProps) {
 
   const { prime, loadTrack, play, pause, restartCurrentBuffer } = useStreamingAudio();
 
-  function loadTrackForId(tid: string) {
-    return loadTrack(`/api/audio/${tid}?session=${session.id}`);
+  async function loadTrackForId(tid: string) {
+    // Resolve the signed URL via JSON instead of relying on a 302 redirect.
+    // iOS Safari blocks cross-origin redirects from fetch(), so we get the
+    // direct Supabase URL and fetch audio from it (proper CORS headers).
+    const res = await fetch(`/api/audio/${tid}?session=${session.id}&json=1`);
+    if (!res.ok) return;
+    const { url } = await res.json();
+    return loadTrack(url);
   }
 
   useRealtimeTable(`sd-client:${session.id}`, [

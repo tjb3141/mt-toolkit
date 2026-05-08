@@ -39,5 +39,12 @@ export async function GET(request: Request, { trackId }: { trackId: string }) {
     return Response.json({ error: 'Failed to sign URL' }, { status: 500 });
   }
 
+  // If caller wants the URL as JSON (e.g. WebAudio fetch path), return it
+  // directly so they can fetch from Supabase with proper CORS headers instead
+  // of relying on a cross-origin 302 redirect (which iOS Safari blocks).
+  if (url.searchParams.get('json') === '1') {
+    return Response.json({ url: data.signedUrl });
+  }
+
   return Response.redirect(data.signedUrl, 302);
 }

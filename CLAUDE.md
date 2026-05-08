@@ -42,6 +42,11 @@ npx eas-cli@latest build -p ios --profile development   # for Expo Go / dev clie
 # EAS web hosting
 npx expo export -p web
 npx eas-cli@latest deploy --prod
+
+# Self-hosted (Raspberry Pi) — deploy via:
+# bash deploy/deploy.sh   → pulls, installs, builds, restarts systemd service
+# or manually:
+# npm run build && npm run serve   → express on port 3000, Caddy fronts for TLS
 ```
 
 ```bash
@@ -78,6 +83,7 @@ app/api/admin/playlists+api.ts    → POST: create playlist
 app/api/admin/playlists/[id]+api.ts → PATCH/DELETE: rename/delete playlist
 app/api/admin/tracks+api.ts       → POST: register uploaded track
 app/api/admin/tracks/[id]+api.ts  → PATCH/DELETE: rename/delete track
+app/api/admin/playlist-tracks+api.ts → POST/DELETE: manage track↔playlist associations
 app/api/admin/sign-upload+api.ts  → POST: get signed upload URL for Supabase Storage
 ```
 
@@ -87,6 +93,7 @@ app/api/admin/sign-upload+api.ts  → POST: get signed upload URL for Supabase S
 
 **Current modes:**
 - `silent_disco` — client picks playlist, shuffles tracks, host plays/pauses all
+- `solo` — like silent disco but each client controls their own playback independently
 - `partners` — clients are paired; each pair hears the same track and must find each other
 - `imposter` — one client hears a different track; others must identify them; host picks town + imposter playlists
 - `freeze_dance` — host picks a playlist, a random track plays for all; host play/pauses; clients who move when paused are marked out; last one standing wins
@@ -119,19 +126,13 @@ Tables with `REPLICA IDENTITY FULL` (needed for DELETE events to carry old row d
 
 ### Audio
 
-Uses `expo-audio` (SDK 54+). The `useAudioPlayer` hook lives at `hooks/useAudioPlayer.ts`.
+Two audio backends depending on platform:
 
-```ts
-import { createAudioPlayer } from 'expo-audio';
-const player = createAudioPlayer({ uri });
-player.loop = true;
-player.addListener('playbackStatusUpdate', (status) => {
-  if (status.didJustFinish && !player.loop) onEnd();
-});
-player.play();
-player.pause();
-player.remove(); // cleanup
-```
+1. **`hooks/useAudioPlayer.ts`** — wraps `expo-audio` (`createAudioPlayer`). Used by native builds and non-Safari web. Supports `loadTrack(trackId, sessionId)`, `play()`, `pause()`, `unload()`.
+
+2. **`hooks/useStreamingAudio.ts`** — WebAudio API (`AudioContext` + `decodeAudioData`). Used by `silent_disco` ClientView on web. Solves the iOS Safari problem: once the AudioContext is unlocked by a user gesture (`prime()`), subsequent track swaps from Realtime callbacks play without needing another gesture. A keep-alive silent oscillator prevents the context from auto-suspending. Call `prime()` inside a button handler before first play.
+
+Both hooks expose `play()`, `pause()`, and `loadTrack()`.
 
 ### Audio security
 
@@ -146,6 +147,12 @@ The audio proxy is a server route (`+api.ts`) — it works on web but not in nat
 ### Admin authentication
 
 All `/api/admin/*` server routes check `process.env.ADMIN_SECRET` via the `x-admin-secret` request header. The `/admin` page is reached via a hidden 7-tap gesture on the "MT Toolkit" label.
+
+### Participant lifecycle + kick system
+
+`hooks/useParticipant.ts` manages joining and identity persistence (via AsyncStorage keyed by session). It subscribes to DELETE events on the participant's row — if the host kicks them, the client detects removal and shows a `KickedScreen`.
+
+`lib/kickParticipant.ts` exports three functions for different contexts: `kickParticipant` (lobby/paused), `kickFromPartnersRound` (resets the round), `kickFromImposterRound` (resets the round). Each cleans up FK references before deleting the participant row.
 
 ### Session lifecycle
 
@@ -180,6 +187,12 @@ RLS is open-read on all tables (no client auth). Sessions allow anonymous insert
 **Local utilities** (`local_utils/.env`, never committed):
 - `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`
 - `YOUTUBE_COOKIES_FILE` — optional path to cookies file for age-restricted content
+
+## Deployment topology
+
+The web build uses `output: 'server'` in `app.config.ts` — this is **not** a static SPA. The Expo server routes (`+api.ts` files) require a Node runtime. In production, `deploy/server.mjs` runs an Express server that handles both API routes and SSR via `@expo/server/adapter/express`. Caddy reverse-proxies to it for TLS.
+
+Server-side code uses `PUBLIC_SUPABASE_URL` (without `EXPO_` prefix) and `SUPABASE_SERVICE_KEY` from the environment. Client-side code uses `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` (Expo inlines these at build time).
 
 ## Key decisions
 
