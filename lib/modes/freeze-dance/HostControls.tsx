@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { Screen, Shell, Panel, PanelStrong, Kicker, GlowButton, HomeButton, ListRow, EndLink, C } from '@/components/ui';
 import { QRCodeDisplay } from '@/components/QRCodeDisplay';
+import { kickParticipant } from '@/lib/kickParticipant';
 import type { ModeProps } from '@/lib/modes';
 import type { Participant, Playlist } from '@/lib/types';
 
@@ -45,6 +46,12 @@ export default function FreezeDanceHostControls({ session }: ModeProps) {
 
   useRealtimeTable(`freeze-host:${session.id}`, [
     { event: 'INSERT', table: 'participants', filter: `session_id=eq.${session.id}`, onPayload: (p) => setParticipants((prev) => [...prev, p.new as Participant]) },
+    { event: 'DELETE', table: 'participants', onPayload: (p) => {
+      const oldId = (p.old as any).id;
+      setParticipants((prev) => prev.filter((x) => x.id !== oldId));
+      setReadyIds((prev) => { const s = new Set(prev); s.delete(oldId); return s; });
+      setEliminatedIds((prev) => { const s = new Set(prev); s.delete(oldId); return s; });
+    }},
     { event: 'UPDATE', table: 'sessions', filter: `id=eq.${session.id}`, onPayload: (p) => {
       setPlaybackState(p.new.playback_state);
       if (p.new.round_active) setRoundActive(true);
@@ -105,6 +112,16 @@ export default function FreezeDanceHostControls({ session }: ModeProps) {
     if (next === 'playing') setRoundActive(true);
   }
 
+  async function kick(p: Participant) {
+    if (!confirm(`Remove ${p.name} from the session?`)) return;
+    setParticipants((prev) => prev.filter((x) => x.id !== p.id));
+    setReadyIds((prev) => { const s = new Set(prev); s.delete(p.id); return s; });
+    setEliminatedIds((prev) => { const s = new Set(prev); s.delete(p.id); return s; });
+    await kickParticipant(p.id, session.id);
+  }
+
+  const canKick = playbackState !== 'playing';
+
   async function markOut(participantId: string) {
     await supabase.from('freeze_dance_eliminations').insert({ session_id: session.id, participant_id: participantId });
     setEliminatedIds((prev) => new Set([...prev, participantId]));
@@ -154,7 +171,16 @@ export default function FreezeDanceHostControls({ session }: ModeProps) {
             <Kicker>Participants ({participants.length})</Kicker>
             {participants.length === 0
               ? <Text style={s.empty}>No one has joined yet.</Text>
-              : <View style={{ gap: 8 }}>{participants.map((p) => <ListRow key={p.id}><Text style={s.name}>{p.name}</Text></ListRow>)}</View>
+              : <View style={{ gap: 8 }}>{participants.map((p) => (
+                  <ListRow key={p.id} style={{ justifyContent: 'space-between' }}>
+                    <Text style={s.name}>{p.name}</Text>
+                    {canKick && (
+                      <Pressable onPress={() => kick(p)} style={s.kickBtn}>
+                        <Text style={s.kickText}>Kick</Text>
+                      </Pressable>
+                    )}
+                  </ListRow>
+                ))}</View>
             }
           </Panel>
 
@@ -261,9 +287,14 @@ export default function FreezeDanceHostControls({ session }: ModeProps) {
                   <ListRow key={p.id} style={{ justifyContent: 'space-between' }}>
                     <Text style={s.name}>{p.name}</Text>
                     {playbackState === 'paused' && (
-                      <Pressable onPress={() => markOut(p.id)} style={s.markOutBtn}>
-                        <Text style={{ color: '#fca5a5', fontSize: 12, fontWeight: '700' }}>Mark out</Text>
-                      </Pressable>
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <Pressable onPress={() => markOut(p.id)} style={s.markOutBtn}>
+                          <Text style={{ color: '#fca5a5', fontSize: 12, fontWeight: '700' }}>Mark out</Text>
+                        </Pressable>
+                        <Pressable onPress={() => kick(p)} style={s.kickBtn}>
+                          <Text style={s.kickText}>Kick</Text>
+                        </Pressable>
+                      </View>
                     )}
                   </ListRow>
                 ))}
@@ -277,9 +308,16 @@ export default function FreezeDanceHostControls({ session }: ModeProps) {
             <Kicker style={{ color: '#52525b' }}>Out ({eliminatedParticipants.length})</Kicker>
             <View style={{ gap: 8, marginTop: 8 }}>
               {eliminatedParticipants.map((p) => (
-                <ListRow key={p.id} style={{ gap: 10 }}>
-                  <Text style={{ fontSize: 20 }}>🧊</Text>
-                  <Text style={[s.name, { color: '#71717a' }]}>{p.name}</Text>
+                <ListRow key={p.id} style={{ justifyContent: 'space-between' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <Text style={{ fontSize: 20 }}>🧊</Text>
+                    <Text style={[s.name, { color: '#71717a' }]}>{p.name}</Text>
+                  </View>
+                  {canKick && (
+                    <Pressable onPress={() => kick(p)} style={s.kickBtn}>
+                      <Text style={s.kickText}>Kick</Text>
+                    </Pressable>
+                  )}
                 </ListRow>
               ))}
             </View>
@@ -316,4 +354,6 @@ const s = StyleSheet.create({
   bigBtnText: { color: '#fff', fontSize: 28, fontWeight: '900' },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   markOutBtn: { borderRadius: 999, backgroundColor: 'rgba(127,29,29,0.6)', paddingHorizontal: 12, paddingVertical: 4 },
+  kickBtn: { borderRadius: 999, borderWidth: 1, borderColor: 'rgba(239,68,68,0.5)', paddingHorizontal: 12, paddingVertical: 4 },
+  kickText: { color: '#fca5a5', fontSize: 12, fontWeight: '700' },
 });

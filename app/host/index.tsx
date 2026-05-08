@@ -15,7 +15,8 @@ function modeHelp(key: string) {
   if (key === 'partners') return 'Pair people up by matching songs.';
   if (key === 'imposter') return 'One person hears a different song — spot the odd one out.';
   if (key === 'freeze_dance') return 'Dance when music plays, freeze when it stops.';
-  return 'Everyone listens solo while you control play and pause.';
+  if (key === 'solo') return 'Each person picks their own playlist; you play and pause for everyone.';
+  return 'Everyone hears the same track you queue. You control play and pause.';
 }
 
 function ModeIcon({ modeKey }: { modeKey: string }) {
@@ -38,6 +39,13 @@ function ModeIcon({ modeKey }: { modeKey: string }) {
     <Svg {...p}>
       <Circle cx={12} cy={8} r={3} strokeWidth={2.25} />
       <Path d="M6 20a6 6 0 0 1 12 0" strokeWidth={2.25} strokeLinecap="round" />
+    </Svg>
+  );
+  if (modeKey === 'solo') return (
+    <Svg {...p}>
+      <Circle cx={12} cy={7} r={3} strokeWidth={2.25} />
+      <Path d="M6 20a6 6 0 0 1 12 0" strokeWidth={2.25} strokeLinecap="round" />
+      <Path d="M16.5 9.5l3-3M19.5 9.5l-3-3" strokeWidth={2} strokeLinecap="round" />
     </Svg>
   );
   // freeze_dance — full snowflake with ticks

@@ -6,8 +6,33 @@ export function useParticipant(sessionId: string) {
   const [participantId, setParticipantId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(true);
+  const [kicked, setKicked] = useState(false);
 
   const storageKey = `participant:${sessionId}`;
+
+  const clear = useCallback(async () => {
+    await AsyncStorage.removeItem(storageKey);
+    setParticipantId(null);
+    setName('');
+  }, [storageKey]);
+
+  // Watch for the host kicking us: row goes away from public.participants.
+  useEffect(() => {
+    if (!participantId) return;
+    const channel = supabase
+      .channel(`kick-watch:${participantId}`)
+      .on(
+        'postgres_changes' as any,
+        { event: 'DELETE', schema: 'public', table: 'participants' },
+        async (payload: any) => {
+          if (payload.old?.id !== participantId) return;
+          await AsyncStorage.removeItem(storageKey);
+          setKicked(true);
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [participantId, storageKey]);
 
   useEffect(() => {
     AsyncStorage.getItem(storageKey).then((saved) => {
@@ -41,5 +66,5 @@ export function useParticipant(sessionId: string) {
     [sessionId, storageKey]
   );
 
-  return { participantId, name, loading, join, setName };
+  return { participantId, name, loading, join, setName, kicked, clear };
 }

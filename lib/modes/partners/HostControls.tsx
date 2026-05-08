@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { Screen, Shell, Panel, PanelStrong, Kicker, GlowButton, HomeButton, ListRow, EndLink } from '@/components/ui';
 import { QRCodeDisplay } from '@/components/QRCodeDisplay';
+import { kickParticipant, kickFromPartnersRound } from '@/lib/kickParticipant';
 import type { ModeProps } from '@/lib/modes';
 import type { Participant, Playlist } from '@/lib/types';
 
@@ -52,12 +53,29 @@ export default function PartnersHostControls({ session }: ModeProps) {
 
   useRealtimeTable(`host-partners:${session.id}`, [
     { event: 'INSERT', table: 'participants', filter: `session_id=eq.${session.id}`, onPayload: (p) => setParticipants((prev) => [...prev, p.new as Participant]) },
+    { event: 'DELETE', table: 'participants', onPayload: (p) => setParticipants((prev) => prev.filter((x) => x.id !== (p.old as any).id)) },
     { event: 'UPDATE', table: 'sessions', filter: `id=eq.${session.id}`, onPayload: (p) => {
       setPlaybackState(p.new.playback_state);
       if (p.new.round_active) setRoundActive(true);
       if (p.new.playback_state === 'ended') setLocalPhase('ended');
     }},
   ]);
+
+  async function kick(p: Participant) {
+    if (!confirm(`Remove ${p.name} from the session?`)) return;
+    setParticipants((prev) => prev.filter((x) => x.id !== p.id));
+    await kickParticipant(p.id, session.id);
+  }
+
+  async function kickFromRound(participantId: string, participantName: string) {
+    if (!confirm(`Remove ${participantName}? This will end the current round and return everyone to the lobby for re-pairing.`)) return;
+    setParticipants((prev) => prev.filter((x) => x.id !== participantId));
+    setPairs([]);
+    setRoundActive(false);
+    setPlaybackState('paused');
+    setLocalPhase('lobby');
+    await kickFromPartnersRound(participantId, session.id);
+  }
 
   function subscribeToPairs() {
     if (pairsChannelRef.current) supabase.removeChannel(pairsChannelRef.current);
@@ -225,7 +243,14 @@ export default function PartnersHostControls({ session }: ModeProps) {
             <Kicker>Participants ({participants.length})</Kicker>
             {participants.length === 0
               ? <Text style={s.empty}>No one has joined yet.</Text>
-              : <View style={{ gap: 8 }}>{participants.map((p) => <ListRow key={p.id}><Text style={s.name}>{p.name}</Text></ListRow>)}</View>
+              : <View style={{ gap: 8 }}>{participants.map((p) => (
+                  <ListRow key={p.id} style={{ justifyContent: 'space-between' }}>
+                    <Text style={s.name}>{p.name}</Text>
+                    <Pressable onPress={() => kick(p)} style={s.kickBtn}>
+                      <Text style={s.kickText}>Kick</Text>
+                    </Pressable>
+                  </ListRow>
+                ))}</View>
             }
           </Panel>
           {participants.length >= 3 ? (
@@ -377,6 +402,12 @@ export default function PartnersHostControls({ session }: ModeProps) {
             const slotCount = pair.participant_3_id ? 3 : 2;
             const readyCount = (pair.p1_ready ? 1 : 0) + (pair.p2_ready ? 1 : 0) + (pair.participant_3_id && pair.p3_ready ? 1 : 0);
             const pairAllReady = pair.p1_ready && pair.p2_ready && (!pair.participant_3_id || pair.p3_ready);
+            const showReadyKick = !roundActive && !pair.found;
+            const members: { id: string; name: string; ready: boolean }[] = [
+              { id: pair.participant_1_id, name: pair.p1Name, ready: pair.p1_ready },
+              { id: pair.participant_2_id, name: pair.p2Name, ready: pair.p2_ready },
+              ...(pair.participant_3_id ? [{ id: pair.participant_3_id, name: pair.p3Name ?? '?', ready: pair.p3_ready }] : []),
+            ];
             return (
               <Panel key={pair.id} style={{ opacity: pair.found ? 0.45 : 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
@@ -391,6 +422,21 @@ export default function PartnersHostControls({ session }: ModeProps) {
                       : <Text style={{ color: pairAllReady ? '#34d399' : '#71717a', fontSize: 13, fontWeight: '700' }}>{readyCount}/{slotCount} ready</Text>
                   }
                 </View>
+                {showReadyKick && (
+                  <View style={{ gap: 6, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' }}>
+                    {members.map((m) => (
+                      <View key={m.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Text style={{ color: m.ready ? '#34d399' : '#52525b', fontSize: 13 }}>{m.ready ? '✓' : '○'}</Text>
+                          <Text style={{ color: '#a1a1aa', fontSize: 14 }}>{m.name}</Text>
+                        </View>
+                        <Pressable onPress={() => kickFromRound(m.id, m.name)} style={s.kickBtn}>
+                          <Text style={s.kickText}>Kick</Text>
+                        </Pressable>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </Panel>
             );
           })}
@@ -426,4 +472,6 @@ const s = StyleSheet.create({
   foundBtn: { borderRadius: 12, backgroundColor: '#059669', paddingHorizontal: 14, paddingVertical: 8 },
   bigBtn: { width: 160, height: 160, borderRadius: 80, alignItems: 'center', justifyContent: 'center' },
   bigBtnText: { color: '#fff', fontSize: 28, fontWeight: '900' },
+  kickBtn: { borderRadius: 999, borderWidth: 1, borderColor: 'rgba(239,68,68,0.5)', paddingHorizontal: 12, paddingVertical: 4 },
+  kickText: { color: '#fca5a5', fontSize: 12, fontWeight: '700' },
 });

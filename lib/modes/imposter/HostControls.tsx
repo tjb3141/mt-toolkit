@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { Screen, Shell, Panel, PanelStrong, Kicker, GlowButton, HomeButton, ListRow, EndLink } from '@/components/ui';
 import { QRCodeDisplay } from '@/components/QRCodeDisplay';
+import { kickParticipant } from '@/lib/kickParticipant';
 import type { ModeProps } from '@/lib/modes';
 import type { Participant, Playlist } from '@/lib/types';
 
@@ -40,6 +41,11 @@ export default function ImposterHostControls({ session }: ModeProps) {
 
   useRealtimeTable(`imposter-host:${session.id}`, [
     { event: 'INSERT', table: 'participants', filter: `session_id=eq.${session.id}`, onPayload: (p) => setParticipants((prev) => [...prev, p.new as Participant]) },
+    { event: 'DELETE', table: 'participants', onPayload: (p) => {
+      const oldId = (p.old as any).id;
+      setParticipants((prev) => prev.filter((x) => x.id !== oldId));
+      setReadyIds((prev) => { const s = new Set(prev); s.delete(oldId); return s; });
+    }},
     { event: 'UPDATE', table: 'sessions', filter: `id=eq.${session.id}`, onPayload: (p) => {
       setPlaybackState(p.new.playback_state);
       if (p.new.round_active) setRoundActive(true);
@@ -50,6 +56,17 @@ export default function ImposterHostControls({ session }: ModeProps) {
       if (p.new.ready) setReadyIds((prev) => new Set([...prev, p.new.id]));
     }},
   ]);
+
+  const canKick = playbackState !== 'playing';
+
+  async function kick(p: Participant) {
+    if (!confirm(`Remove ${p.name} from the session?`)) return;
+    setParticipants((prev) => prev.filter((x) => x.id !== p.id));
+    setReadyIds((prev) => { const s = new Set(prev); s.delete(p.id); return s; });
+    if (selectedImposterId === p.id) setSelectedImposterId(null);
+    if (imposterParticipantId === p.id) setImposterParticipantId(null);
+    await kickParticipant(p.id, session.id);
+  }
 
   async function loadLatestRound() {
     const { data } = await supabase.from('imposter_rounds').select('round, imposter_participant_id, town_playlist_id, imposter_playlist_id').eq('session_id', session.id).order('round', { ascending: false }).limit(1).maybeSingle();
@@ -130,7 +147,14 @@ export default function ImposterHostControls({ session }: ModeProps) {
             <Kicker>Participants ({participants.length})</Kicker>
             {participants.length === 0
               ? <Text style={s.empty}>No one has joined yet.</Text>
-              : <View style={{ gap: 8 }}>{participants.map((p) => <ListRow key={p.id}><Text style={s.name}>{p.name}</Text></ListRow>)}</View>
+              : <View style={{ gap: 8 }}>{participants.map((p) => (
+                  <ListRow key={p.id} style={{ justifyContent: 'space-between' }}>
+                    <Text style={s.name}>{p.name}</Text>
+                    <Pressable onPress={() => kick(p)} style={s.kickBtn}>
+                      <Text style={s.kickText}>Kick</Text>
+                    </Pressable>
+                  </ListRow>
+                ))}</View>
             }
           </Panel>
           {participants.length >= 2 ? (
@@ -256,6 +280,11 @@ export default function ImposterHostControls({ session }: ModeProps) {
                       ? <View style={s.imposterBadge}><Text style={{ color: '#fca5a5', fontSize: 12, fontWeight: '700' }}>Imposter</Text></View>
                       : <View style={s.townBadge}><Text style={{ color: '#a1a1aa', fontSize: 12 }}>Townsperson</Text></View>
                     }
+                    {canKick && (
+                      <Pressable onPress={() => kick(p)} style={s.kickBtn}>
+                        <Text style={s.kickText}>Kick</Text>
+                      </Pressable>
+                    )}
                   </View>
                 </ListRow>
               ))}
@@ -317,4 +346,6 @@ const s = StyleSheet.create({
   imposterBadge: { borderRadius: 999, backgroundColor: 'rgba(127,29,29,0.6)', paddingHorizontal: 10, paddingVertical: 4 },
   townBadge: { borderRadius: 999, backgroundColor: '#27272a', paddingHorizontal: 10, paddingVertical: 4 },
   revealBtn: { borderRadius: 18, backgroundColor: '#7c3aed', paddingVertical: 20, alignItems: 'center' },
+  kickBtn: { borderRadius: 999, borderWidth: 1, borderColor: 'rgba(239,68,68,0.5)', paddingHorizontal: 12, paddingVertical: 4 },
+  kickText: { color: '#fca5a5', fontSize: 12, fontWeight: '700' },
 });

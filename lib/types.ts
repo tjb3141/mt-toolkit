@@ -50,6 +50,14 @@ export type ImposterRound = {
   imposter_track_id: string;
 };
 
+export type SilentDiscoRound = {
+  id: string;
+  session_id: string;
+  round: number;
+  track_id: string;
+  created_at: string;
+};
+
 export type FreezeDanceRound = {
   id: string;
   session_id: string;

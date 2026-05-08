@@ -5,6 +5,10 @@ import type { Session } from '@/lib/types';
 import SilentDiscoClientView from './silent-disco/ClientView';
 import SilentDiscoHostControls from './silent-disco/HostControls';
 
+// Solo
+import SoloClientView from './solo/ClientView';
+import SoloHostControls from './solo/HostControls';
+
 // Partners
 import PartnersClientView from './partners/ClientView';
 import PartnersHostControls from './partners/HostControls';
@@ -32,6 +36,11 @@ export const modes: Record<string, ModeEntry> = {
     label: 'Silent Disco',
     ClientView: SilentDiscoClientView,
     HostControls: SilentDiscoHostControls,
+  },
+  solo: {
+    label: 'Solo',
+    ClientView: SoloClientView,
+    HostControls: SoloHostControls,
   },
   partners: {
     label: 'Partners',

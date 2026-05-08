@@ -6,13 +6,14 @@ import { useAudioPlayer } from '@/hooks/useAudioPlayer';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { useLatest } from '@/hooks/useLatest';
 import { Screen, Shell, Panel, PanelStrong, Kicker, GlowButton, EqBars, StyledInput } from '@/components/ui';
+import { KickedScreen } from '@/components/KickedScreen';
 import type { ModeProps } from '@/lib/modes';
 import type { Track } from '@/lib/types';
 
 type PairData = { id: string; track_id: string | null; found: boolean; mySlot: 'p1' | 'p2' | 'p3' };
 
 export default function PartnersClientView({ session }: ModeProps) {
-  const { participantId, name, loading: participantLoading, join } = useParticipant(session.id);
+  const { participantId, name, loading: participantLoading, join, kicked } = useParticipant(session.id);
   const [playbackState, setPlaybackState] = useState(session.playback_state);
   const [pair, setPair] = useState<PairData | null>(null);
   const [track, setTrack] = useState<Track | null>(null);
@@ -44,6 +45,14 @@ export default function PartnersClientView({ session }: ModeProps) {
     { event: 'INSERT', table: 'partners_pairs', filter: `session_id=eq.${session.id}`, onPayload: async () => {
       // Always reload on new pairs — handles both first round and reassign
       await loadPair();
+    }},
+    { event: 'DELETE', table: 'partners_pairs', filter: `session_id=eq.${session.id}`, onPayload: () => {
+      // Round was reset (e.g., host kicked someone). Drop back to waiting state.
+      if (pairChannelRef.current) { supabase.removeChannel(pairChannelRef.current); pairChannelRef.current = null; }
+      pause();
+      setPair(null);
+      setTrack(null);
+      setReadyForTrackId(null);
     }},
   ], !!participantId);
 
@@ -120,6 +129,11 @@ export default function PartnersClientView({ session }: ModeProps) {
   }
 
   if (participantLoading) return null;
+
+  if (kicked) {
+    pause();
+    return <KickedScreen />;
+  }
 
   if (!participantId) {
     return (

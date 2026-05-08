@@ -7,10 +7,11 @@ import { useAudioPlayer } from '@/hooks/useAudioPlayer';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { useLatest } from '@/hooks/useLatest';
 import { Screen, Shell, Panel, PanelStrong, Kicker, GlowButton, EqBars, StyledInput } from '@/components/ui';
+import { KickedScreen } from '@/components/KickedScreen';
 import type { ModeProps } from '@/lib/modes';
 
 export default function FreezeDanceClientView({ session }: ModeProps) {
-  const { participantId, name, loading: participantLoading, join } = useParticipant(session.id);
+  const { participantId, name, loading: participantLoading, join, kicked } = useParticipant(session.id);
   const [playbackState, setPlaybackState] = useState(session.playback_state);
   const [trackId, setTrackId] = useState<string | null>(null);
   const [trackTitle, setTrackTitle] = useState<string | null>(null);
@@ -119,6 +120,11 @@ export default function FreezeDanceClientView({ session }: ModeProps) {
   }
 
   if (participantLoading) return null;
+
+  if (kicked) {
+    pause();
+    return <KickedScreen />;
+  }
 
   if (!participantId) {
     return (

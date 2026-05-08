@@ -35,17 +35,42 @@ export async function DELETE(request: Request, { id }: { id: string }) {
 
   const admin = adminClient();
 
-  const { data: tracks } = await admin
-    .from('tracks')
-    .select('id, storage_path')
+  // Find every track currently linked to this playlist.
+  const { data: links } = await admin
+    .from('playlist_tracks')
+    .select('track_id')
     .eq('playlist_id', id);
+  const candidateTrackIds = (links ?? []).map((l) => l.track_id);
 
-  if (tracks && tracks.length > 0) {
-    const trackIds = tracks.map((t) => t.id);
-    await admin.from('freeze_dance_rounds').delete().in('track_id', trackIds);
-    await admin.from('partners_pairs').update({ track_id: null }).in('track_id', trackIds);
-    await admin.from('tracks').delete().in('id', trackIds);
-    await admin.storage.from('tracks').remove(tracks.map((t) => t.storage_path));
+  // Drop this playlist's join rows so we can recompute which tracks are now unlinked.
+  await admin.from('playlist_tracks').delete().eq('playlist_id', id);
+
+  // Of the candidates, keep any track still referenced by another playlist.
+  let orphanIds: string[] = [];
+  if (candidateTrackIds.length > 0) {
+    const { data: stillLinked } = await admin
+      .from('playlist_tracks')
+      .select('track_id')
+      .in('track_id', candidateTrackIds);
+    const stillLinkedIds = new Set((stillLinked ?? []).map((l) => l.track_id));
+    orphanIds = candidateTrackIds.filter((tid) => !stillLinkedIds.has(tid));
+  }
+
+  if (orphanIds.length > 0) {
+    const { data: orphanTracks } = await admin
+      .from('tracks')
+      .select('id, storage_path')
+      .in('id', orphanIds);
+
+    await admin.from('freeze_dance_rounds').delete().in('track_id', orphanIds);
+    await admin.from('silent_disco_rounds').delete().in('track_id', orphanIds);
+    await admin.from('partners_pairs').update({ track_id: null }).in('track_id', orphanIds);
+    await admin.from('tracks').delete().in('id', orphanIds);
+
+    const paths = (orphanTracks ?? []).map((t) => t.storage_path).filter(Boolean);
+    if (paths.length > 0) {
+      await admin.storage.from('tracks').remove(paths);
+    }
   }
 
   await admin.from('participants').update({ playlist_id: null }).eq('playlist_id', id);
