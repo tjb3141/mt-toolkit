@@ -17,7 +17,7 @@ export function HostHeader({ code, label }: { code: string; label?: string }) {
         <Kicker>Room Code</Kicker>
         <Text style={s.roomCode}>{code}</Text>
       </PanelStrong>
-      {joinUrl ? <QRCodeDisplay url={joinUrl} code={code} /> : null}
+      {joinUrl ? <QRCodeDisplay url={joinUrl} code={code} showCode={false} /> : null}
     </View>
   );
 }

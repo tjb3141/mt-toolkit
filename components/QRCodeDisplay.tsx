@@ -1,14 +1,18 @@
 import { View, Text, StyleSheet } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
-export function QRCodeDisplay({ url, code }: { url: string; code: string }) {
+export function QRCodeDisplay({ url, code, showCode = true }: { url: string; code: string; showCode?: boolean }) {
   return (
     <View style={s.wrap}>
       <View style={s.qrBox}>
         <QRCode value={url} size={160} backgroundColor="#18181b" color="#ffffff" quietZone={8} />
       </View>
-      <Text style={s.label}>Room Code</Text>
-      <Text style={s.code}>{code}</Text>
+      {showCode && (
+        <>
+          <Text style={s.label}>Room Code</Text>
+          <Text style={s.code}>{code}</Text>
+        </>
+      )}
     </View>
   );
 }
