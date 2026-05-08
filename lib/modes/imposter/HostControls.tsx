@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { Screen, Shell, Panel, PanelStrong, Kicker, GlowButton, HomeButton, ListRow, EndLink } from '@/components/ui';
 import { HostHeader } from '@/components/HostHeader';
-import { kickParticipant } from '@/lib/kickParticipant';
+import { kickParticipant, kickFromImposterRound } from '@/lib/kickParticipant';
 import type { ModeProps } from '@/lib/modes';
 import type { Participant, Playlist } from '@/lib/types';
 
@@ -59,12 +59,25 @@ export default function ImposterHostControls({ session }: ModeProps) {
   const canKick = playbackState !== 'playing';
 
   async function kick(p: Participant) {
-    if (!confirm(`Remove ${p.name} from the session?`)) return;
+    const isActiveImposter = imposterParticipantId === p.id && (localPhase === 'playing' || localPhase === 'revealed');
+    const message = isActiveImposter
+      ? `Remove ${p.name}? They are the imposter — this round will end and you'll need to pick a new imposter.`
+      : `Remove ${p.name} from the session?`;
+    if (!confirm(message)) return;
     setParticipants((prev) => prev.filter((x) => x.id !== p.id));
     setReadyIds((prev) => { const s = new Set(prev); s.delete(p.id); return s; });
     if (selectedImposterId === p.id) setSelectedImposterId(null);
-    if (imposterParticipantId === p.id) setImposterParticipantId(null);
-    await kickParticipant(p.id, session.id);
+    if (isActiveImposter) {
+      // Reset round state and route Riley back to a re-pick screen.
+      setImposterParticipantId(null);
+      setPlaybackState('paused');
+      setRoundActive(false);
+      setLocalPhase('lobby');
+      await kickFromImposterRound(p.id, session.id);
+    } else {
+      if (imposterParticipantId === p.id) setImposterParticipantId(null);
+      await kickParticipant(p.id, session.id);
+    }
   }
 
   async function loadLatestRound() {

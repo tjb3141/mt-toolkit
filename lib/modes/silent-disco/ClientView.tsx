@@ -22,6 +22,7 @@ export default function SilentDiscoClientView({ session }: ModeProps) {
   const playbackStateRef = useLatest(playbackState);
   const participantIdRef = useLatest(participantId);
   const trackIdRef = useLatest(trackId);
+  const readyForRoundRef = useLatest(readyForRound);
 
   const { prime, loadTrack, play, pause, restartCurrentBuffer } = useStreamingAudio();
 
@@ -55,10 +56,13 @@ export default function SilentDiscoClientView({ session }: ModeProps) {
         const wasPlaying = playbackStateRef.current === 'playing';
         const newRound = (payload.new as any).round as number;
         const newTrackId = (payload.new as any).track_id as string | null;
-        // Update ready state in the same render as currentRound so the ready
-        // screen doesn't flash. wasPlaying => pre-readied for seamless skip;
-        // otherwise reset to require a fresh ready check.
-        await loadCurrentRound(pid, wasPlaying ? newRound : null);
+        // Pre-mark ready for the new round if this client has already readied
+        // up at least once — their audio context is primed, no fresh tap
+        // needed. Late joiners (readyForRound === null) still see the ready
+        // prompt for their very first track. Updating both states in the same
+        // render avoids flashing the ready screen.
+        const hasReadiedBefore = readyForRoundRef.current !== null;
+        await loadCurrentRound(pid, hasReadiedBefore ? newRound : null);
         if (wasPlaying && newTrackId && newTrackId === trackIdRef.current) {
           restartCurrentBuffer();
         }

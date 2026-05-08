@@ -49,7 +49,6 @@ export default function SilentDiscoHostControls({ session }: ModeProps) {
   const [currentPlaylistId, setCurrentPlaylistId] = useState<string | null>(null);
   const [queue, setQueue] = useState<Track[]>([]);
   const [playbackState, setPlaybackState] = useState(session.playback_state);
-  const [readyIds, setReadyIds] = useState<Set<string>>(new Set());
   const [starting, setStarting] = useState(false);
 
   // Auto-advance bookkeeping. The host doesn't play audio, so we time the
@@ -59,13 +58,14 @@ export default function SilentDiscoHostControls({ session }: ModeProps) {
   const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const allReady = useMemo(
-    () => participants.length > 0 && participants.every((p) => readyIds.has(p.id)),
-    [participants, readyIds]
+    () => participants.length > 0 && participants.every((p) => p.ready === true),
+    [participants]
   );
+  const readyCount = useMemo(() => participants.filter((p) => p.ready === true).length, [participants]);
 
   useEffect(() => {
     Promise.all([
-      supabase.from('participants').select('id, name, joined_at').eq('session_id', session.id).order('joined_at'),
+      supabase.from('participants').select('id, name, joined_at, ready').eq('session_id', session.id).order('joined_at'),
       supabase.from('playlists').select('id, name').order('display_order'),
     ]).then(([{ data: pData }, { data: plData }]) => {
       setParticipants(pData ?? []);
@@ -82,12 +82,13 @@ export default function SilentDiscoHostControls({ session }: ModeProps) {
     }},
     { event: 'UPDATE', table: 'participants', onPayload: (p) => {
       if (p.new.session_id !== session.id) return;
-      if (p.new.ready) setReadyIds((prev) => new Set([...prev, p.new.id]));
+      // Mirror the row into local state so allReady tracks the DB source of truth
+      // for both ready transitions (true and false).
+      setParticipants((prev) => prev.map((x) => x.id === p.new.id ? { ...x, ...(p.new as Participant) } : x));
     }},
     { event: 'DELETE', table: 'participants', onPayload: (p) => {
       const oldId = (p.old as any).id;
       setParticipants((prev) => prev.filter((x) => x.id !== oldId));
-      setReadyIds((prev) => { const s = new Set(prev); s.delete(oldId); return s; });
     }},
   ]);
 
@@ -96,7 +97,6 @@ export default function SilentDiscoHostControls({ session }: ModeProps) {
   async function kick(p: Participant) {
     if (!confirm(`Remove ${p.name} from the session?`)) return;
     setParticipants((prev) => prev.filter((x) => x.id !== p.id));
-    setReadyIds((prev) => { const s = new Set(prev); s.delete(p.id); return s; });
     await kickParticipant(p.id, session.id);
   }
 
@@ -139,7 +139,7 @@ export default function SilentDiscoHostControls({ session }: ModeProps) {
     if (!opts.skipReadyCheck) {
       await supabase.from('participants').update({ ready: false }).eq('session_id', session.id);
       await supabase.from('sessions').update({ playback_state: 'paused' }).eq('id', session.id);
-      setReadyIds(new Set());
+      setParticipants((prev) => prev.map((x) => ({ ...x, ready: false })));
       setPlaybackState('paused');
     }
     setCurrentRound(nextRound);
@@ -195,10 +195,13 @@ export default function SilentDiscoHostControls({ session }: ModeProps) {
   async function advanceToNext() {
     const next = await pickNextTrack();
     if (!next) return;
-    // Seamless if music was already playing; otherwise normal ready-check flow.
-    const seamless = playbackState === 'playing';
-    await startRoundWithTrack(next, { skipReadyCheck: seamless });
-    if (seamless) {
+    // Skip / auto-advance always skips the ready check. Clients have already
+    // primed their audio when they hit Ready for the first track of the
+    // session, so subsequent track changes (whether currently playing or
+    // paused) don't need a fresh ready tap.
+    const wasPlaying = playbackState === 'playing';
+    await startRoundWithTrack(next, { skipReadyCheck: true });
+    if (wasPlaying) {
       // We're staying in 'playing' state; arm the timer immediately.
       armAdvanceTimer(next);
     }
@@ -422,7 +425,7 @@ export default function SilentDiscoHostControls({ session }: ModeProps) {
           </Pressable>
           {playbackState === 'playing'
             ? <Text style={{ color: '#34d399', fontSize: 13, fontWeight: '600' }}>Music playing</Text>
-            : <Text style={{ color: '#71717a', fontSize: 13 }}>{readyIds.size}/{participants.length} ready</Text>
+            : <Text style={{ color: '#71717a', fontSize: 13 }}>{readyCount}/{participants.length} ready</Text>
           }
           <Pressable onPress={advanceToNext} style={s.skipBtn}>
             <Text style={s.skipText}>Skip ▶</Text>
@@ -455,8 +458,8 @@ export default function SilentDiscoHostControls({ session }: ModeProps) {
               <ListRow key={p.id} style={{ justifyContent: 'space-between' }}>
                 <Text style={s.name}>{p.name}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <Text style={{ color: readyIds.has(p.id) ? '#34d399' : '#71717a', fontSize: 12, fontWeight: '700' }}>
-                    {readyIds.has(p.id) ? 'Ready' : '…'}
+                  <Text style={{ color: p.ready ? '#34d399' : '#71717a', fontSize: 12, fontWeight: '700' }}>
+                    {p.ready ? 'Ready' : '…'}
                   </Text>
                   {canKick && (
                     <Pressable onPress={() => kick(p)} style={s.kickBtn}>

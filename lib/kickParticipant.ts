@@ -19,3 +19,11 @@ export async function kickFromPartnersRound(participantId: string, sessionId: st
   await supabase.from('partners_pairs').delete().eq('session_id', sessionId);
   await supabase.from('participants').delete().eq('id', participantId);
 }
+
+// Kicks the active imposter mid-round. The round is meaningless without one,
+// so reset the session to paused and drop all imposter_rounds rows.
+export async function kickFromImposterRound(participantId: string, sessionId: string): Promise<void> {
+  await supabase.from('sessions').update({ playback_state: 'paused', round_active: false }).eq('id', sessionId);
+  await supabase.from('imposter_rounds').delete().eq('session_id', sessionId);
+  await supabase.from('participants').delete().eq('id', participantId);
+}

@@ -14,6 +14,7 @@ export type Participant = {
   playlist_id?: string | null;
   current_track?: string | null;
   joined_at?: string;
+  ready?: boolean;
 };
 
 export type Playlist = {

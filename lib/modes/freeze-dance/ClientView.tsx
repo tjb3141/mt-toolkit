@@ -21,6 +21,7 @@ export default function FreezeDanceClientView({ session }: ModeProps) {
   // readyForRound: round number the client tapped ready for this round
   const [readyForRound, setReadyForRound] = useState<number | null>(null);
   const [currentRound, setCurrentRound] = useState<number | null>(null);
+  const [isWinner, setIsWinner] = useState(false);
 
   const playbackStateRef = useLatest(playbackState);
   const participantIdRef = useLatest(participantId);
@@ -52,6 +53,7 @@ export default function FreezeDanceClientView({ session }: ModeProps) {
         if (!pid) return;
         setIsEliminated(false);
         setReadyForRound(null);
+        setIsWinner(false);
         await loadCurrentRound(pid);
         // Don't auto-play — wait for host Play after ready check
       },
@@ -63,19 +65,42 @@ export default function FreezeDanceClientView({ session }: ModeProps) {
     const ch = supabase
       .channel(`freeze-elim:${session.id}:${participantId}`)
       .on('postgres_changes' as any, { event: 'INSERT', schema: 'public', table: 'freeze_dance_eliminations', filter: `participant_id=eq.${participantId}` }, () => { setIsEliminated(true); pause(); })
+      .on('postgres_changes' as any, { event: 'INSERT', schema: 'public', table: 'freeze_dance_eliminations', filter: `session_id=eq.${session.id}` }, () => {
+        // Any elim in our session — recompute winner status for ourselves.
+        recomputeWinner();
+      })
       .on('postgres_changes' as any, { event: 'DELETE', schema: 'public', table: 'freeze_dance_eliminations' }, async () => {
         const pid = participantIdRef.current;
         if (!pid) return;
         const stillEliminated = await checkElimination(pid);
         if (!stillEliminated && playbackStateRef.current === 'playing') play();
+        recomputeWinner();
+      })
+      .on('postgres_changes' as any, { event: 'DELETE', schema: 'public', table: 'participants' }, () => {
+        // Someone got kicked — could change winner status.
+        recomputeWinner();
       })
       .subscribe();
     elimChannelRef.current = ch;
     return () => { supabase.removeChannel(ch); };
   }, [participantId]);
 
+  // Recompute whether this client is the last one standing.
+  async function recomputeWinner() {
+    const pid = participantIdRef.current;
+    if (!pid) return;
+    const [{ count: total }, { count: out }] = await Promise.all([
+      supabase.from('participants').select('id', { count: 'exact', head: true }).eq('session_id', session.id),
+      supabase.from('freeze_dance_eliminations').select('id', { count: 'exact', head: true }).eq('session_id', session.id),
+    ]);
+    const active = (total ?? 0) - (out ?? 0);
+    const stillEliminated = await checkElimination(pid);
+    setIsWinner(active === 1 && !stillEliminated);
+  }
+
   useEffect(() => {
     if (!participantId) return;
+    recomputeWinner();
     if (playbackState === 'playing' || playbackState === 'paused') {
       loadCurrentRound(participantId).then(() => checkElimination(participantId));
     }
@@ -153,6 +178,21 @@ export default function FreezeDanceClientView({ session }: ModeProps) {
           <Kicker>MT Toolkit</Kicker>
           <Text style={s.bigTitle}>Session ended</Text>
           <Text style={{ color: '#71717a', marginTop: 8 }}>Thanks for playing!</Text>
+        </Shell>
+      </Screen>
+    );
+  }
+
+  if (isWinner && !isEliminated) {
+    return (
+      <Screen>
+        <Shell style={{ justifyContent: 'center', alignItems: 'center', gap: 24 }}>
+          <Text style={{ fontSize: 96, lineHeight: 112 }}>🏆</Text>
+          <PanelStrong style={{ alignItems: 'center', width: '100%' }}>
+            <Kicker style={{ color: '#fde047' }}>Winner!</Kicker>
+            <Text style={s.bigTitle}>{name}, you won!</Text>
+            <Text style={{ color: '#a1a1aa', marginTop: 8, textAlign: 'center' }}>Last one standing.</Text>
+          </PanelStrong>
         </Shell>
       </Screen>
     );

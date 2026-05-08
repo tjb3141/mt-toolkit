@@ -51,6 +51,16 @@ export default function ImposterClientView({ session }: ModeProps) {
       setAssignedTrackId(null); setAssignedTrackTitle(null); setIsImposter(null);
       await loadCurrentRound(pid);
     }},
+    { event: 'DELETE', table: 'imposter_rounds', filter: `session_id=eq.${session.id}`, onPayload: () => {
+      // Round was reset (host kicked the imposter). Drop back to waiting state.
+      pause();
+      setAssignedTrackId(null);
+      setAssignedTrackTitle(null);
+      setIsImposter(null);
+      setImposterName(null);
+      setReadyForRound(null);
+      setCurrentRound(null);
+    }},
   ], !!participantId);
 
   useEffect(() => {
