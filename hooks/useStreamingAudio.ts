@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 // WebAudio-based audio hook. Used by silent_disco's ClientView so the host
 // can swap tracks (Skip / auto-advance) without the iOS Safari "fresh element
@@ -45,6 +45,9 @@ export function useStreamingAudio(options?: Options) {
   });
   const onEndRef = useRef(options?.onEnd);
   onEndRef.current = options?.onEnd;
+  // Inline debug visible to the user — needed because iOS Safari has no console
+  // and audio failures here are hard to diagnose otherwise.
+  const [debug, setDebug] = useState<string>('idle');
 
   // Cleanup on unmount.
   useEffect(() => {
@@ -66,11 +69,12 @@ export function useStreamingAudio(options?: Options) {
       const Ctor = (typeof window !== 'undefined'
         ? (window.AudioContext ?? (window as any).webkitAudioContext)
         : null) as typeof AudioContext | null;
-      if (!Ctor) return null;
+      if (!Ctor) { setDebug('no AudioContext ctor'); return null; }
       s.ctx = new Ctor();
       s.output = s.ctx.createGain();
       s.output.gain.value = 1;
       s.output.connect(s.ctx.destination);
+      setDebug(`ctx created (${s.ctx.state}, ${s.ctx.sampleRate}Hz)`);
     }
     return s.ctx;
   }, []);
@@ -105,24 +109,22 @@ export function useStreamingAudio(options?: Options) {
     if (!ctx) return;
     startKeepAlive();
     if (ctx.state === 'suspended') {
-      // Don't await — awaiting drops us out of the gesture window on iOS,
-      // which then refuses to actually start audio for non-keepalive sources
-      // when play() is called later from a realtime callback.
-      void ctx.resume();
+      ctx.resume().then(() => setDebug(`primed (${ctx.state})`)).catch((e) => setDebug(`resume err: ${e?.message ?? e}`));
     }
-    // If the real track buffer is already decoded, briefly start+stop it so
-    // iOS registers that the actual audio source has been activated within
-    // a gesture. Otherwise the first audible play() from a realtime callback
-    // won't produce sound.
     const s = stateRef.current;
+    let burstFired = false;
     if (s.buffer) {
       try {
         const burst = s.ctx!.createBufferSource();
         burst.buffer = s.buffer;
         burst.connect(s.output ?? s.ctx!.destination);
         burst.start(0, 0, 0.01);
-      } catch {}
+        burstFired = true;
+      } catch (e: any) {
+        setDebug(`burst err: ${e?.message ?? e}`);
+      }
     }
+    setDebug(`primed (${ctx.state}, burst=${burstFired ? 'y' : 'n'})`);
   }, [ensureContext]);
 
   const ensureRunning = useCallback(() => {
@@ -150,20 +152,35 @@ export function useStreamingAudio(options?: Options) {
     if (!ctx) return;
     startKeepAlive();
     s.pendingUri = uri;
-    const res = await fetch(uri);
-    if (s.pendingUri !== uri) return; // a newer load superseded us
-    if (!res.ok) throw new Error(`audio fetch failed: ${res.status}`);
-    const bytes = await res.arrayBuffer();
+    setDebug('fetching…');
+    let res: Response;
+    try {
+      res = await fetch(uri);
+    } catch (e: any) {
+      setDebug(`fetch threw: ${e?.message ?? e}`);
+      return;
+    }
     if (s.pendingUri !== uri) return;
-    // Safari requires the callback form of decodeAudioData on older iOS.
-    const buffer: AudioBuffer = await new Promise((resolve, reject) => {
-      s.ctx!.decodeAudioData(bytes, resolve, reject);
-    });
+    if (!res.ok) { setDebug(`fetch ${res.status}`); return; }
+    setDebug(`fetched ${res.headers.get('content-length') ?? '?'}B, decoding…`);
+    let bytes: ArrayBuffer;
+    try { bytes = await res.arrayBuffer(); }
+    catch (e: any) { setDebug(`arrayBuffer threw: ${e?.message ?? e}`); return; }
+    if (s.pendingUri !== uri) return;
+    let buffer: AudioBuffer;
+    try {
+      buffer = await new Promise<AudioBuffer>((resolve, reject) => {
+        s.ctx!.decodeAudioData(bytes, resolve, reject);
+      });
+    } catch (e: any) {
+      setDebug(`decode err: ${e?.message ?? e ?? 'null'}`);
+      return;
+    }
     if (s.pendingUri !== uri) return;
     s.buffer = buffer;
     s.currentUri = uri;
     s.pauseOffset = 0;
-    // If we were playing the previous buffer, swap to the new one immediately.
+    setDebug(`buffer ready (${buffer.duration.toFixed(1)}s, ${buffer.sampleRate}Hz)`);
     if (s.isPlaying) {
       try { s.source?.stop(); } catch {}
       s.source = null;
@@ -194,10 +211,12 @@ export function useStreamingAudio(options?: Options) {
 
   const play = useCallback(() => {
     const s = stateRef.current;
-    if (!s.ctx || !s.buffer) return;
+    if (!s.ctx) { setDebug('play: no ctx'); return; }
+    if (!s.buffer) { setDebug('play: no buffer'); return; }
     ensureRunning();
     if (s.isPlaying) return;
     startSource(s.pauseOffset);
+    setDebug(`playing (${s.ctx.state})`);
   }, [ensureRunning]);
 
   const pause = useCallback(() => {
@@ -209,5 +228,5 @@ export function useStreamingAudio(options?: Options) {
     s.isPlaying = false;
   }, []);
 
-  return { prime, loadTrack, play, pause, restartCurrentBuffer };
+  return { prime, loadTrack, play, pause, restartCurrentBuffer, debug };
 }

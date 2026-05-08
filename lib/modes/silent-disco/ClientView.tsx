@@ -24,7 +24,7 @@ export default function SilentDiscoClientView({ session }: ModeProps) {
   const trackIdRef = useLatest(trackId);
   const readyForRoundRef = useLatest(readyForRound);
 
-  const { prime, loadTrack, play, pause, restartCurrentBuffer } = useStreamingAudio();
+  const { prime, loadTrack, play, pause, restartCurrentBuffer, debug } = useStreamingAudio();
 
   async function loadTrackForId(tid: string) {
     // Resolve the signed URL via JSON instead of relying on a 302 redirect.
@@ -123,109 +123,135 @@ export default function SilentDiscoClientView({ session }: ModeProps) {
     setSubmitting(false);
   }
 
+  // Always-visible debug overlay so we can see audio state on iOS where
+  // there's no console. Renders absolutely on top of every screen.
+  const debugOverlay = (
+    <View pointerEvents="none" style={s.debugBar}>
+      <Text style={s.debugText} numberOfLines={2}>{debug}</Text>
+    </View>
+  );
+
   if (participantLoading) return null;
 
   if (kicked) {
     pause();
-    return <KickedScreen />;
+    return <><KickedScreen />{debugOverlay}</>;
   }
 
   if (!participantId) {
     return (
-      <Screen avoidKeyboard>
-        <Shell style={{ justifyContent: 'center' }}>
-          <PanelStrong style={{ alignItems: 'center', paddingVertical: 32 }}>
-            <Text style={s.emoji}>🎧</Text>
-            <Kicker>MT Toolkit</Kicker>
-            <Text style={s.bigTitle}>What's your name?</Text>
-          </PanelStrong>
-          <Panel style={{ gap: 12 }}>
-            <StyledInput value={nameInput} onChangeText={setNameInput} placeholder="Your name" maxLength={32} autoFocus onSubmitEditing={handleJoin} />
-            <GlowButton onPress={handleJoin} disabled={submitting || !nameInput.trim()}>
-              <Text style={s.btnText}>{submitting ? 'Joining…' : "Let's go"}</Text>
-            </GlowButton>
-          </Panel>
-        </Shell>
-      </Screen>
+      <>
+        <Screen avoidKeyboard>
+          <Shell style={{ justifyContent: 'center' }}>
+            <PanelStrong style={{ alignItems: 'center', paddingVertical: 32 }}>
+              <Text style={s.emoji}>🎧</Text>
+              <Kicker>MT Toolkit</Kicker>
+              <Text style={s.bigTitle}>What's your name?</Text>
+            </PanelStrong>
+            <Panel style={{ gap: 12 }}>
+              <StyledInput value={nameInput} onChangeText={setNameInput} placeholder="Your name" maxLength={32} autoFocus onSubmitEditing={handleJoin} />
+              <GlowButton onPress={handleJoin} disabled={submitting || !nameInput.trim()}>
+                <Text style={s.btnText}>{submitting ? 'Joining…' : "Let's go"}</Text>
+              </GlowButton>
+            </Panel>
+          </Shell>
+        </Screen>
+        {debugOverlay}
+      </>
     );
   }
 
   if (playbackState === 'ended') {
     return (
-      <Screen>
-        <Shell style={{ justifyContent: 'center', alignItems: 'center' }}>
-          <Kicker>MT Toolkit</Kicker>
-          <Text style={s.bigTitle}>Session ended</Text>
-          <Text style={{ color: '#71717a', marginTop: 8 }}>Thanks for playing!</Text>
-        </Shell>
-      </Screen>
+      <>
+        <Screen>
+          <Shell style={{ justifyContent: 'center', alignItems: 'center' }}>
+            <Kicker>MT Toolkit</Kicker>
+            <Text style={s.bigTitle}>Session ended</Text>
+            <Text style={{ color: '#71717a', marginTop: 8 }}>Thanks for playing!</Text>
+          </Shell>
+        </Screen>
+        {debugOverlay}
+      </>
     );
   }
 
   if (!trackId) {
     return (
-      <Screen>
-        <Shell style={{ justifyContent: 'center', alignItems: 'center', gap: 24 }}>
-          <PanelStrong style={{ alignItems: 'center', width: '100%' }}>
-            <Kicker>MT Toolkit</Kicker>
-            <Text style={s.bigTitle}>Hi, {name}!</Text>
-            <Text style={{ color: '#a1a1aa', fontSize: 16, marginTop: 8, textAlign: 'center' }}>Waiting for the host to queue a track…</Text>
-          </PanelStrong>
-          <EqBars />
-        </Shell>
-      </Screen>
+      <>
+        <Screen>
+          <Shell style={{ justifyContent: 'center', alignItems: 'center', gap: 24 }}>
+            <PanelStrong style={{ alignItems: 'center', width: '100%' }}>
+              <Kicker>MT Toolkit</Kicker>
+              <Text style={s.bigTitle}>Hi, {name}!</Text>
+              <Text style={{ color: '#a1a1aa', fontSize: 16, marginTop: 8, textAlign: 'center' }}>Waiting for the host to queue a track…</Text>
+            </PanelStrong>
+            <EqBars />
+          </Shell>
+        </Screen>
+        {debugOverlay}
+      </>
     );
   }
 
   // Ready check — once per queued track
   if (readyForRound !== currentRound) {
     return (
-      <Screen>
-        <Shell style={{ justifyContent: 'center', alignItems: 'center', gap: 24 }}>
-          <PanelStrong style={{ alignItems: 'center', width: '100%', gap: 10 }}>
-            <Text style={s.emoji}>🎵</Text>
-            <Kicker>Get ready</Kicker>
-            <Text style={s.trackTitle}>{trackTitle}</Text>
-            <Text style={{ color: '#a1a1aa', fontSize: 14, textAlign: 'center', marginTop: 4 }}>
-              Headphones in — tap when you're ready and the host will start the music.
-            </Text>
-          </PanelStrong>
-          <GlowButton onPress={markReady} style={{ width: '100%' }}>
-            <Text style={s.btnText}>I'm Ready</Text>
-          </GlowButton>
-        </Shell>
-      </Screen>
+      <>
+        <Screen>
+          <Shell style={{ justifyContent: 'center', alignItems: 'center', gap: 24 }}>
+            <PanelStrong style={{ alignItems: 'center', width: '100%', gap: 10 }}>
+              <Text style={s.emoji}>🎵</Text>
+              <Kicker>Get ready</Kicker>
+              <Text style={s.trackTitle}>{trackTitle}</Text>
+              <Text style={{ color: '#a1a1aa', fontSize: 14, textAlign: 'center', marginTop: 4 }}>
+                Headphones in — tap when you're ready and the host will start the music.
+              </Text>
+            </PanelStrong>
+            <GlowButton onPress={markReady} style={{ width: '100%' }}>
+              <Text style={s.btnText}>I'm Ready</Text>
+            </GlowButton>
+          </Shell>
+        </Screen>
+        {debugOverlay}
+      </>
     );
   }
 
   // Ready, waiting for host to play
   if (playbackState === 'paused') {
     return (
-      <Screen>
-        <Shell style={{ justifyContent: 'center', alignItems: 'center', gap: 24 }}>
-          <PanelStrong style={{ alignItems: 'center', width: '100%' }}>
-            <Kicker style={{ color: '#34d399' }}>Ready!</Kicker>
-            <Text style={s.trackTitle}>{trackTitle}</Text>
-            <Text style={{ color: '#a1a1aa', fontSize: 15, marginTop: 8, textAlign: 'center' }}>
-              Waiting for host to start…
-            </Text>
-          </PanelStrong>
-          <EqBars />
-        </Shell>
-      </Screen>
+      <>
+        <Screen>
+          <Shell style={{ justifyContent: 'center', alignItems: 'center', gap: 24 }}>
+            <PanelStrong style={{ alignItems: 'center', width: '100%' }}>
+              <Kicker style={{ color: '#34d399' }}>Ready!</Kicker>
+              <Text style={s.trackTitle}>{trackTitle}</Text>
+              <Text style={{ color: '#a1a1aa', fontSize: 15, marginTop: 8, textAlign: 'center' }}>
+                Waiting for host to start…
+              </Text>
+            </PanelStrong>
+            <EqBars />
+          </Shell>
+        </Screen>
+        {debugOverlay}
+      </>
     );
   }
 
   // Playing
   return (
-    <Screen>
-      <Shell style={{ justifyContent: 'center' }}>
-        <PanelStrong style={{ alignItems: 'center' }}>
-          <Kicker style={{ color: '#34d399' }}>Now playing</Kicker>
-          <Text style={s.trackTitle}>{trackTitle}</Text>
-        </PanelStrong>
-      </Shell>
-    </Screen>
+    <>
+      <Screen>
+        <Shell style={{ justifyContent: 'center' }}>
+          <PanelStrong style={{ alignItems: 'center' }}>
+            <Kicker style={{ color: '#34d399' }}>Now playing</Kicker>
+            <Text style={s.trackTitle}>{trackTitle}</Text>
+          </PanelStrong>
+        </Shell>
+      </Screen>
+      {debugOverlay}
+    </>
   );
 }
 
@@ -234,4 +260,6 @@ const s = StyleSheet.create({
   bigTitle: { color: '#fff', fontSize: 36, fontWeight: '900', textAlign: 'center', marginTop: 4 },
   btnText: { color: '#fff', fontSize: 18, fontWeight: '900' },
   trackTitle: { color: '#fff', fontSize: 28, fontWeight: '900', textAlign: 'center', marginTop: 6, lineHeight: 34 },
+  debugBar: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)' },
+  debugText: { color: '#fde047', fontSize: 11, fontFamily: 'monospace' as any },
 });
